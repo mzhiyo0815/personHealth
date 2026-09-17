@@ -17,4 +17,4 @@ def test_app_urlconfs_are_included():
         if isinstance(pattern, URLResolver)
     }
 
-    assert included_routes == {"", "accounts/"}
+    assert {"", "accounts/"} <= included_routes

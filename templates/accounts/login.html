@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录｜个人健康记录</title>
+</head>
+<body>
+  <main>
+    <h1>登录</h1>
+    <p>手机号未经验证，仅作为账号标识。忘记密码请联系管理员重置。</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">登录</button>
+    </form>
+    <a href="{% url 'accounts:register' %}">创建账号</a>
+  </main>
+</body>
+</html>

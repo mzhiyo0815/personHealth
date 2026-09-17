@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>注册｜个人健康记录</title>
+</head>
+<body>
+  <main>
+    <h1>创建账号</h1>
+    <p>手机号不会经过短信验证，仅作为登录账号标识。</p>
+    <p>密码至少 8 位。</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">注册</button>
+    </form>
+    <a href="{% url 'accounts:login' %}">已有账号，去登录</a>
+  </main>
+</body>
+</html>
