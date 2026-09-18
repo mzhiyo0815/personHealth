@@ -104,7 +104,7 @@ def test_successful_create_redirects_to_existing_page(client, user):
     )
 
     assert response.status_code == 200
-    assert response.redirect_chain == [("/meals/new/", 302)]
+    assert response.redirect_chain == [("/", 302)]
 
 
 @pytest.mark.django_db

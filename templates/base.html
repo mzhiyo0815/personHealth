@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}个人健康记录{% endblock %}</title>
+</head>
+<body>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  {% if request.user.is_authenticated %}
+    <nav aria-label="主要导航">
+      <a href="{% url 'tracker:today' %}"{% if request.resolver_match.url_name == 'today' %} aria-current="page"{% endif %}>今日</a>
+      <a href="{% url 'tracker:history' %}"{% if request.resolver_match.url_name == 'history' %} aria-current="page"{% endif %}>历史</a>
+      <span aria-disabled="true">趋势</span>
+      <span aria-disabled="true">我的</span>
+    </nav>
+  {% endif %}
+</body>
+</html>

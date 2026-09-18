@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}历史｜个人健康记录{% endblock %}
+{% block content %}
+  <h1>历史记录</h1>
+  <form method="get">
+    <label for="history-date">查看日期</label>
+    <input id="history-date" name="date" type="date" value="{{ selected_date|date:'Y-m-d' }}">
+    <button type="submit">筛选</button>
+  </form>
+  {% for group in page %}
+    <section>
+      <h2>{{ group.date|date:"Y年n月j日" }}</h2>
+      <ul>
+        {% for record in group.records %}
+          <li>
+            <time>{{ record.occurred_at|date:"H:i" }}</time>
+            {% if record.record_type == "meal" %}
+              {{ record.get_meal_type_display }}：{{ record.food }}
+              <a href="{% url 'tracker:meal-edit' record.pk %}">编辑</a>
+              <a href="{% url 'tracker:meal-delete-confirm' record.pk %}">删除</a>
+            {% elif record.record_type == "exercise" %}
+              {{ record.get_exercise_type_display }}：{{ record.duration_minutes }} 分钟
+              <a href="{% url 'tracker:exercise-edit' record.pk %}">编辑</a>
+              <a href="{% url 'tracker:exercise-delete-confirm' record.pk %}">删除</a>
+            {% else %}
+              {{ record.get_kind_display }}：{{ record.value }}
+              <a href="{% url 'tracker:measurement-edit' record.pk %}">编辑</a>
+              <a href="{% url 'tracker:measurement-delete-confirm' record.pk %}">删除</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <p>暂无记录。</p>
+  {% endfor %}
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">上一页</a>{% endif %}
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">下一页</a>{% endif %}
+{% endblock %}

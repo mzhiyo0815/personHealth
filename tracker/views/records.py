@@ -13,7 +13,7 @@ def meal_create(request):
         meal = form.save(commit=False)
         meal.user = request.user
         meal.save()
-        return redirect("tracker:meal-create")
+        return redirect("tracker:today")
     return render(request, "tracker/record_form.html", {"form": form, "title": "记录饮食"})
 
 
@@ -23,7 +23,7 @@ def meal_edit(request, pk):
     form = MealForm(request.POST or None, instance=meal)
     if request.method == "POST" and form.is_valid():
         form.save()
-        return redirect("tracker:meal-create")
+        return redirect("tracker:today")
     return render(request, "tracker/record_form.html", {"form": form, "title": "编辑饮食"})
 
 
@@ -42,7 +42,7 @@ def meal_delete_confirm(request, pk):
 def meal_delete(request, pk):
     meal = get_object_or_404(request.user.meals, pk=pk)
     meal.delete()
-    return redirect("tracker:meal-create")
+    return redirect("tracker:today")
 
 
 @login_required
@@ -57,7 +57,7 @@ def exercise_create(request):
             exercise.save()
             formset.instance = exercise
             formset.save()
-        return redirect("tracker:exercise-create")
+        return redirect("tracker:today")
     return render(
         request,
         "tracker/record_form.html",
@@ -79,7 +79,7 @@ def exercise_edit(request, pk):
             if form.is_valid() and formset.is_valid():
                 form.save()
                 formset.save()
-                return redirect("tracker:exercise-create")
+                return redirect("tracker:today")
     else:
         exercise = get_object_or_404(request.user.exercises, pk=pk)
         form = ExerciseForm(instance=exercise)
@@ -106,17 +106,20 @@ def exercise_delete_confirm(request, pk):
 def exercise_delete(request, pk):
     exercise = get_object_or_404(request.user.exercises, pk=pk)
     exercise.delete()
-    return redirect("tracker:exercise-create")
+    return redirect("tracker:today")
 
 
 @login_required
 def measurement_create(request):
-    form = MeasurementForm(request.POST or None)
+    initial = {}
+    if request.GET.get("kind") in {"weight", "waist"}:
+        initial["kind"] = request.GET["kind"]
+    form = MeasurementForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         measurement = form.save(commit=False)
         measurement.user = request.user
         measurement.save()
-        return redirect("tracker:measurement-create")
+        return redirect("tracker:today")
     return render(
         request, "tracker/record_form.html", {"form": form, "title": "记录身体指标"}
     )
@@ -128,7 +131,7 @@ def measurement_edit(request, pk):
     form = MeasurementForm(request.POST or None, instance=measurement)
     if request.method == "POST" and form.is_valid():
         form.save()
-        return redirect("tracker:measurement-create")
+        return redirect("tracker:today")
     return render(
         request, "tracker/record_form.html", {"form": form, "title": "编辑身体指标"}
     )
@@ -149,4 +152,4 @@ def measurement_delete_confirm(request, pk):
 def measurement_delete(request, pk):
     measurement = get_object_or_404(request.user.measurements, pk=pk)
     measurement.delete()
-    return redirect("tracker:measurement-create")
+    return redirect("tracker:today")

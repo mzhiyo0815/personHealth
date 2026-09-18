@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}今日｜个人健康记录{% endblock %}
+{% block content %}
+  <header>
+    <p>{{ today|date:"Y年n月j日" }}</p>
+    <h1>今天记录什么？</h1>
+  </header>
+  <section aria-label="快速记录">
+    <a href="{% url 'tracker:meal-create' %}">记饮食</a>
+    <a href="{% url 'tracker:exercise-create' %}">记运动</a>
+    <a href="{% url 'tracker:measurement-create' %}?kind=weight">记体重</a>
+    <a href="{% url 'tracker:measurement-create' %}?kind=waist">记腰围</a>
+  </section>
+  <section aria-labelledby="completion-title">
+    <h2 id="completion-title">今日完成</h2>
+    <ul>
+      <li>早餐：{% if completion.breakfast %}已记录{% else %}未记录{% endif %}</li>
+      <li>午餐：{% if completion.lunch %}已记录{% else %}未记录{% endif %}</li>
+      <li>晚餐：{% if completion.dinner %}已记录{% else %}未记录{% endif %}</li>
+      <li>加餐：{% if completion.snack %}已记录{% else %}未记录{% endif %}</li>
+      <li>运动：{% if completion.exercise %}已记录{% else %}未记录{% endif %}</li>
+      <li>体重：{% if completion.weight %}已记录{% else %}未记录{% endif %}</li>
+      <li>腰围：{% if completion.waist %}已记录{% else %}未记录{% endif %}</li>
+    </ul>
+  </section>
+{% endblock %}
