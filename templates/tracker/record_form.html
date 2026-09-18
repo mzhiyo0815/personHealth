@@ -2,7 +2,7 @@
 {% block title %}{{ title }}｜个人健康记录{% endblock %}
 {% block content %}
     <h1>{{ title }}</h1>
-    <form method="post">
+    <form method="post" data-draft-form="record">
       {% csrf_token %}
       {{ form.as_p }}
       {% if formset %}

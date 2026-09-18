@@ -108,6 +108,41 @@ def test_successful_create_redirects_to_existing_page(client, user):
 
 
 @pytest.mark.django_db
+def test_successful_create_returns_matching_draft_token(client, user):
+    client.force_login(user)
+    token = "12345678-1234-4abc-8def-1234567890ab"
+
+    response = client.post(
+        "/meals/new/",
+        {
+            "occurred_at": "2026-09-18T08:00",
+            "meal_type": "breakfast",
+            "food": "鸡蛋",
+            "draft_token": token,
+        },
+    )
+
+    assert response.headers["Location"] == f"/?draft_saved={token}"
+
+
+@pytest.mark.django_db
+def test_successful_create_does_not_reflect_invalid_draft_token(client, user):
+    client.force_login(user)
+
+    response = client.post(
+        "/meals/new/",
+        {
+            "occurred_at": "2026-09-18T08:00",
+            "meal_type": "breakfast",
+            "food": "鸡蛋",
+            "draft_token": "not-a-token&next=https://example.com",
+        },
+    )
+
+    assert response.headers["Location"] == "/"
+
+
+@pytest.mark.django_db
 def test_exercise_create_saves_multiple_strength_sets(client, user):
     client.force_login(user)
 

@@ -1,9 +1,25 @@
+import re
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from tracker.forms import ExerciseForm, MealForm, MeasurementForm, StrengthSetFormSet
+
+
+DRAFT_TOKEN_RE = re.compile(
+    r"\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z"
+)
+
+
+def redirect_after_save(request):
+    token = request.POST.get("draft_token", "").lower()
+    location = reverse("tracker:today")
+    if DRAFT_TOKEN_RE.fullmatch(token):
+        location = f"{location}?draft_saved={token}"
+    return redirect(location)
 
 
 @login_required
@@ -13,7 +29,7 @@ def meal_create(request):
         meal = form.save(commit=False)
         meal.user = request.user
         meal.save()
-        return redirect("tracker:today")
+        return redirect_after_save(request)
     return render(request, "tracker/record_form.html", {"form": form, "title": "记录饮食"})
 
 
@@ -23,7 +39,7 @@ def meal_edit(request, pk):
     form = MealForm(request.POST or None, instance=meal)
     if request.method == "POST" and form.is_valid():
         form.save()
-        return redirect("tracker:today")
+        return redirect_after_save(request)
     return render(request, "tracker/record_form.html", {"form": form, "title": "编辑饮食"})
 
 
@@ -57,7 +73,7 @@ def exercise_create(request):
             exercise.save()
             formset.instance = exercise
             formset.save()
-        return redirect("tracker:today")
+        return redirect_after_save(request)
     return render(
         request,
         "tracker/record_form.html",
@@ -79,7 +95,7 @@ def exercise_edit(request, pk):
             if form.is_valid() and formset.is_valid():
                 form.save()
                 formset.save()
-                return redirect("tracker:today")
+                return redirect_after_save(request)
     else:
         exercise = get_object_or_404(request.user.exercises, pk=pk)
         form = ExerciseForm(instance=exercise)
@@ -119,7 +135,7 @@ def measurement_create(request):
         measurement = form.save(commit=False)
         measurement.user = request.user
         measurement.save()
-        return redirect("tracker:today")
+        return redirect_after_save(request)
     return render(
         request, "tracker/record_form.html", {"form": form, "title": "记录身体指标"}
     )
@@ -131,7 +147,7 @@ def measurement_edit(request, pk):
     form = MeasurementForm(request.POST or None, instance=measurement)
     if request.method == "POST" and form.is_valid():
         form.save()
-        return redirect("tracker:today")
+        return redirect_after_save(request)
     return render(
         request, "tracker/record_form.html", {"form": form, "title": "编辑身体指标"}
     )

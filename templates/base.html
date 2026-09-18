@@ -1,21 +1,23 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}个人健康记录{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
-<body>
+<body{% if request.user.is_authenticated %} data-user-id="{{ request.user.pk }}"{% endif %}>
   <main class="page">
     {% block content %}{% endblock %}
   </main>
   {% if request.user.is_authenticated %}
-    <nav aria-label="主要导航">
+    <nav class="bottom-nav" aria-label="主要导航">
       <a href="{% url 'tracker:today' %}"{% if request.resolver_match.url_name == 'today' %} aria-current="page"{% endif %}>今日</a>
       <a href="{% url 'tracker:history' %}"{% if request.resolver_match.url_name == 'history' %} aria-current="page"{% endif %}>历史</a>
       <a href="{% url 'tracker:trends' %}"{% if request.resolver_match.url_name == 'trends' %} aria-current="page"{% endif %}>趋势</a>
       <a href="{% url 'tracker:profile' %}"{% if request.resolver_match.url_name == 'profile' %} aria-current="page"{% endif %}>我的</a>
     </nav>
   {% endif %}
+  <script src="{% static 'js/draft-form.js' %}" defer></script>
 </body>
 </html>
