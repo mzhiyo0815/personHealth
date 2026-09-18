@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>确认删除｜个人健康记录</title>
+</head>
+<body>
+  <main>
+    <h1>确认删除</h1>
+    <p>删除后无法恢复，确定要继续吗？</p>
+    <form method="post" action="{% url delete_url object.pk %}">
+      {% csrf_token %}
+      <button type="submit">确认删除</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}｜个人健康记录</title>
+</head>
+<body>
+  <main>
+    <h1>{{ title }}</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if formset %}
+        {{ formset.management_form }}
+        {{ formset.as_p }}
+      {% endif %}
+      <button type="submit">保存</button>
+    </form>
+  </main>
+</body>
+</html>
