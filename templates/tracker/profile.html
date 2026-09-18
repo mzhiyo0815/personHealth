@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}我的｜个人健康记录{% endblock %}
+{% block content %}
+  <h1>我的</h1>
+  <p>账号：{{ request.user.phone }}（手机号未经验证，仅作为账号标识）</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">保存目标</button>
+  </form>
+  <h2>账号与数据</h2>
+  <ul>
+    <li><a href="{% url 'tracker:password-change' %}">修改密码</a></li>
+    <li><a href="{% url 'tracker:export-json' %}">导出 JSON</a></li>
+    <li><a href="{% url 'tracker:export-csv' %}">导出 CSV</a></li>
+  </ul>
+  <form method="post" action="{% url 'accounts:logout' %}">
+    {% csrf_token %}<button type="submit">退出登录</button>
+  </form>
+{% endblock %}

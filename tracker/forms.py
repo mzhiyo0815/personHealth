@@ -1,7 +1,7 @@
 from django import forms
 from django.forms.models import BaseInlineFormSet
 
-from .models import Exercise, Meal, Measurement, StrengthSet
+from .models import Exercise, Meal, Measurement, StrengthSet, UserGoal
 
 
 class DateTimeLocalInput(forms.DateTimeInput):
@@ -147,3 +147,37 @@ class MeasurementForm(forms.ModelForm):
         if kind in limits and value is not None and value > limits[kind]:
             self.add_error("value", f"数值不能超过 {limits[kind]}。")
         return cleaned_data
+
+
+class UserGoalForm(forms.ModelForm):
+    class Meta:
+        model = UserGoal
+        fields = (
+            "target_weight",
+            "weekly_exercise_minutes",
+            "weekly_strength_sessions",
+            "show_calories",
+        )
+        widgets = {
+            "target_weight": forms.NumberInput(attrs={"min": 0.01, "max": 500, "step": "0.01"}),
+            "weekly_exercise_minutes": forms.NumberInput(attrs={"min": 0}),
+            "weekly_strength_sessions": forms.NumberInput(attrs={"min": 0}),
+        }
+
+    def clean_target_weight(self):
+        value = self.cleaned_data.get("target_weight")
+        if value is not None and value > 500:
+            raise forms.ValidationError("目标体重不能超过 500 kg。")
+        return value
+
+    def clean_weekly_exercise_minutes(self):
+        value = self.cleaned_data["weekly_exercise_minutes"]
+        if value > 10080:
+            raise forms.ValidationError("每周运动目标不能超过 10080 分钟。")
+        return value
+
+    def clean_weekly_strength_sessions(self):
+        value = self.cleaned_data["weekly_strength_sessions"]
+        if value > 100:
+            raise forms.ValidationError("每周力量训练目标不能超过 100 次。")
+        return value
