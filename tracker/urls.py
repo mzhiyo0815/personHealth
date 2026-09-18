@@ -1,6 +1,6 @@
 from django.urls import path
 
-from tracker.views import dashboard, history
+from tracker.views import dashboard, history, trends
 from tracker.views import records
 
 app_name = "tracker"
@@ -8,6 +8,7 @@ app_name = "tracker"
 urlpatterns = [
     path("", dashboard.today, name="today"),
     path("history/", history.history, name="history"),
+    path("trends/", trends.trends, name="trends"),
     path("meals/new/", records.meal_create, name="meal-create"),
     path("meals/<uuid:pk>/edit/", records.meal_edit, name="meal-edit"),
     path(

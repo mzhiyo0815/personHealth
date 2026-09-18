@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}趋势｜个人健康记录{% endblock %}
+{% block content %}
+  <h1>健康趋势</h1>
+  <nav aria-label="趋势时间范围">
+    <a href="?range=7"{% if range_days == 7 %} aria-current="page"{% endif %}>7 天</a>
+    <a href="?range=30"{% if range_days == 30 %} aria-current="page"{% endif %}>30 天</a>
+  </nav>
+  {% include "components/line_chart.svg.html" with chart=weight_chart %}
+  {% include "components/line_chart.svg.html" with chart=waist_chart %}
+  <section>
+    <h2>运动汇总</h2>
+    {% for week in exercise_summary %}
+      <p>{{ week.week_start }}{% if week.is_partial %}（截至今日）{% endif %}：{{ week.duration_minutes }} 分钟，力量训练 {{ week.strength_sessions }} 次</p>
+    {% empty %}<p>暂无运动数据。</p>{% endfor %}
+  </section>
+  <section>
+    <h2>饮食完成情况</h2>
+    <table>
+      <thead><tr><th>日期</th><th>已记录餐次</th></tr></thead>
+      <tbody>{% for row in meal_completion %}<tr><td>{{ row.date }}</td><td>{{ row.completed }}/{{ row.total }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </section>
+  {% if nutrition_series %}
+    <section>
+      <h2>营养趋势</h2>
+      {% for chart in nutrition_charts %}
+        {% include "components/line_chart.svg.html" with chart=chart %}
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}

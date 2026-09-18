@@ -1,0 +1,18 @@
+<section aria-labelledby="{{ chart.id }}-title">
+  <h2 id="{{ chart.id }}-title">{{ chart.title }}</h2>
+  {% if chart.rows %}
+    <svg viewBox="0 0 100 100" role="img" aria-labelledby="{{ chart.id }}-svg-title">
+      <title id="{{ chart.id }}-svg-title">{{ chart.title }}</title>
+      {% if chart.polyline %}<polyline points="{{ chart.polyline }}" fill="none" stroke="currentColor" />{% endif %}
+      {% for point in chart.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="2" />{% endfor %}
+    </svg>
+    <table>
+      <thead><tr><th>日期</th><th>数值（{{ chart.unit }}）</th></tr></thead>
+      <tbody>
+        {% for row in chart.rows %}<tr><td>{{ row.label }}</td><td>{{ row.value }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>暂无足够数据。</p>
+  {% endif %}
+</section>

@@ -154,11 +154,11 @@ def test_history_paginates_date_keys_in_database(client, user):
 
 
 @pytest.mark.django_db
-def test_unimplemented_navigation_items_are_not_broken_links(client, user):
+def test_navigation_only_disables_unimplemented_items(client, user):
     client.force_login(user)
 
     content = client.get("/").content.decode()
 
-    assert 'href="/trends/"' not in content
+    assert 'href="/trends/"' in content
     assert 'href="/me/"' not in content
-    assert content.count('aria-disabled="true"') == 2
+    assert content.count('aria-disabled="true"') == 1

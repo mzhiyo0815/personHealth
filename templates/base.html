@@ -13,7 +13,7 @@
     <nav aria-label="主要导航">
       <a href="{% url 'tracker:today' %}"{% if request.resolver_match.url_name == 'today' %} aria-current="page"{% endif %}>今日</a>
       <a href="{% url 'tracker:history' %}"{% if request.resolver_match.url_name == 'history' %} aria-current="page"{% endif %}>历史</a>
-      <span aria-disabled="true">趋势</span>
+      <a href="{% url 'tracker:trends' %}"{% if request.resolver_match.url_name == 'trends' %} aria-current="page"{% endif %}>趋势</a>
       <span aria-disabled="true">我的</span>
     </nav>
   {% endif %}
