@@ -7,7 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 
-from tracker.forms import UserGoalForm
+from tracker.forms import LocalizedPasswordChangeForm, UserGoalForm
 from tracker.models import UserGoal
 from tracker.services.export import csv_export_rows, json_export_chunks, safe_csv_value
 
@@ -25,6 +25,7 @@ def profile(request):
 @method_decorator(login_required, name="dispatch")
 class UserPasswordChangeView(PasswordChangeView):
     template_name = "tracker/password_change.html"
+    form_class = LocalizedPasswordChangeForm
     success_url = reverse_lazy("tracker:profile")
 
 

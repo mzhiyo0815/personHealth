@@ -70,8 +70,12 @@ def trends(request):
         "range_days": range_days,
         "weight_series": weight_series,
         "waist_series": waist_series,
-        "weight_chart": chart_payload(weight_series, "体重趋势", "kg", "weight"),
-        "waist_chart": chart_payload(waist_series, "腰围趋势", "cm", "waist"),
+        "weight_chart": chart_payload(
+            weight_series, "体重趋势", "千克（kg）", "weight"
+        ),
+        "waist_chart": chart_payload(
+            waist_series, "腰围趋势", "厘米（cm）", "waist"
+        ),
         "exercise_summary": exercise_summary,
         "meal_completion": meal_completion_series(meal_rows, start_date, range_days),
         "nutrition_series": nutrition_series,
@@ -79,15 +83,18 @@ def trends(request):
     if nutrition_series:
         context["nutrition_charts"] = (
             chart_payload(
-                nutrition_series["calories"], "热量趋势", "kcal", "calories"
+                nutrition_series["calories"], "热量趋势", "千卡（kcal）", "calories"
             ),
             chart_payload(
-                nutrition_series["protein"], "蛋白质趋势", "g", "protein"
+                nutrition_series["protein"], "蛋白质趋势", "克（g）", "protein"
             ),
             chart_payload(
-                nutrition_series["carbohydrates"], "碳水趋势", "g", "carbohydrates"
+                nutrition_series["carbohydrates"],
+                "碳水趋势",
+                "克（g）",
+                "carbohydrates",
             ),
-            chart_payload(nutrition_series["fat"], "脂肪趋势", "g", "fat"),
+            chart_payload(nutrition_series["fat"], "脂肪趋势", "克（g）", "fat"),
         )
     return render(request, "tracker/trends.html", context)
 from datetime import timedelta

@@ -6,6 +6,9 @@ from tracker.forms import (
     ExerciseForm,
     MealForm,
     MeasurementForm,
+    StrengthSetForm,
+    StrengthSetFormSet,
+    UserGoalForm,
 )
 from tracker.models import Exercise, Meal, Measurement, StrengthSet
 
@@ -42,6 +45,53 @@ def test_record_forms_do_not_expose_owner_or_photo_fields():
     assert forbidden_fields.isdisjoint(MealForm().fields)
     assert forbidden_fields.isdisjoint(ExerciseForm().fields)
     assert forbidden_fields.isdisjoint(MeasurementForm().fields)
+
+
+def test_health_forms_use_chinese_labels_with_units(db):
+    expected_labels = {
+        MealForm: {
+            "occurred_at": "记录时间",
+            "meal_type": "餐次",
+            "food": "食物",
+            "portion": "份量/备注",
+            "fullness": "饱腹感（1–10）",
+            "calories": "热量（千卡 kcal）",
+            "protein": "蛋白质（克 g）",
+            "carbohydrates": "碳水化合物（克 g）",
+            "fat": "脂肪（克 g）",
+        },
+        ExerciseForm: {
+            "occurred_at": "记录时间",
+            "exercise_type": "运动类型",
+            "duration_minutes": "运动时长（分钟）",
+            "intensity": "强度",
+            "notes": "备注",
+        },
+        StrengthSetForm: {
+            "exercise_name": "动作名称",
+            "sets": "组数",
+            "reps_per_set": "每组次数",
+            "load_kg": "负重（千克 kg）",
+        },
+        MeasurementForm: {
+            "occurred_at": "记录时间",
+            "kind": "指标类型",
+            "value": "数值（体重 kg，腰围 cm）",
+        },
+        UserGoalForm: {
+            "target_weight": "目标体重（千克 kg）",
+            "weekly_exercise_minutes": "每周运动目标（分钟）",
+            "weekly_strength_sessions": "每周力量训练目标（次）",
+            "show_calories": "显示热量",
+        },
+    }
+
+    for form_class, labels in expected_labels.items():
+        form = form_class()
+        assert {name: form.fields[name].label for name in labels} == labels
+
+    formset = StrengthSetFormSet(prefix="strength_sets")
+    assert formset.forms[0].fields["DELETE"].label == "删除本条"
 
 
 def test_forms_reject_negative_nutrition_and_excessive_duration():

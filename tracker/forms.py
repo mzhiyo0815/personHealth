@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import PasswordChangeForm
 from django.forms.models import BaseInlineFormSet
 
 from .models import Exercise, Meal, Measurement, StrengthSet, UserGoal
@@ -30,6 +31,17 @@ class MealForm(forms.ModelForm):
             "carbohydrates": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
             "fat": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
         }
+        labels = {
+            "occurred_at": "记录时间",
+            "meal_type": "餐次",
+            "food": "食物",
+            "portion": "份量/备注",
+            "fullness": "饱腹感（1–10）",
+            "calories": "热量（千卡 kcal）",
+            "protein": "蛋白质（克 g）",
+            "carbohydrates": "碳水化合物（克 g）",
+            "fat": "脂肪（克 g）",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -49,6 +61,13 @@ class ExerciseForm(forms.ModelForm):
         widgets = {
             "occurred_at": DateTimeLocalInput(format="%Y-%m-%dT%H:%M"),
             "duration_minutes": forms.NumberInput(attrs={"min": 1, "max": 1440}),
+        }
+        labels = {
+            "occurred_at": "记录时间",
+            "exercise_type": "运动类型",
+            "duration_minutes": "运动时长（分钟）",
+            "intensity": "强度",
+            "notes": "备注",
         }
 
     def __init__(self, *args, **kwargs):
@@ -72,9 +91,19 @@ class StrengthSetForm(forms.ModelForm):
             "load_kg": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
             "order": forms.HiddenInput(),
         }
+        labels = {
+            "exercise_name": "动作名称",
+            "sets": "组数",
+            "reps_per_set": "每组次数",
+            "load_kg": "负重（千克 kg）",
+        }
 
 
 class BaseStrengthSetFormSet(BaseInlineFormSet):
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        form.fields["DELETE"].label = "删除本条"
+
     def clean(self):
         super().clean()
         if any(self.errors):
@@ -134,6 +163,11 @@ class MeasurementForm(forms.ModelForm):
             "occurred_at": DateTimeLocalInput(format="%Y-%m-%dT%H:%M"),
             "value": forms.NumberInput(attrs={"min": 0.01, "step": "0.01"}),
         }
+        labels = {
+            "occurred_at": "记录时间",
+            "kind": "指标类型",
+            "value": "数值（体重 kg，腰围 cm）",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -163,6 +197,12 @@ class UserGoalForm(forms.ModelForm):
             "weekly_exercise_minutes": forms.NumberInput(attrs={"min": 0}),
             "weekly_strength_sessions": forms.NumberInput(attrs={"min": 0}),
         }
+        labels = {
+            "target_weight": "目标体重（千克 kg）",
+            "weekly_exercise_minutes": "每周运动目标（分钟）",
+            "weekly_strength_sessions": "每周力量训练目标（次）",
+            "show_calories": "显示热量",
+        }
 
     def clean_target_weight(self):
         value = self.cleaned_data.get("target_weight")
@@ -181,3 +221,15 @@ class UserGoalForm(forms.ModelForm):
         if value > 100:
             raise forms.ValidationError("每周力量训练目标不能超过 100 次。")
         return value
+
+
+class LocalizedPasswordChangeForm(PasswordChangeForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["old_password"].label = "旧密码"
+        self.fields["new_password1"].label = "新密码"
+        self.fields["new_password1"].help_text = (
+            "至少 8 位，不能与账号信息过于相似，不能是常见密码或纯数字。"
+        )
+        self.fields["new_password2"].label = "确认新密码"
+        self.fields["new_password2"].help_text = "请再次输入相同的新密码。"

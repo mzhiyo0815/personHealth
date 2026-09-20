@@ -162,3 +162,28 @@ def test_navigation_links_to_trends_and_profile(client, user):
     assert 'href="/trends/"' in content
     assert 'href="/me/"' in content
     assert 'aria-disabled="true"' not in content
+
+
+@pytest.mark.django_db
+def test_history_displays_units_for_exercise_weight_and_waist(client, user):
+    now = timezone.now()
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=30,
+        intensity="easy",
+        occurred_at=now,
+    )
+    Measurement.objects.create(
+        user=user, kind="weight", value=70.2, occurred_at=now
+    )
+    Measurement.objects.create(
+        user=user, kind="waist", value=82.5, occurred_at=now
+    )
+    client.force_login(user)
+
+    content = client.get("/history/").content.decode()
+
+    assert "30 分钟" in content
+    assert "70.20 千克（kg）" in content
+    assert "82.50 厘米（cm）" in content

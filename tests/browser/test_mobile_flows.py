@@ -33,6 +33,84 @@ def test_auth_pages_share_mobile_styles_and_safe_area_viewport(client):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_all_forms_use_chinese_labels_and_show_units(
+    page, live_server, client, user, settings
+):
+    page.goto(f"{live_server.url}/accounts/register/")
+    registration_labels = " ".join(page.locator("label").all_inner_texts())
+    assert all(
+        label in registration_labels for label in ("手机号", "密码", "确认密码")
+    )
+
+    client.force_login(user)
+    page.context.add_cookies(
+        [{
+            "name": settings.SESSION_COOKIE_NAME,
+            "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+            "url": live_server.url,
+        }]
+    )
+    expected_by_path = {
+        "/meals/new/": (
+            "记录时间",
+            "餐次",
+            "食物",
+            "份量/备注",
+            "饱腹感（1–10）",
+            "热量（千卡 kcal）",
+            "蛋白质（克 g）",
+            "碳水化合物（克 g）",
+            "脂肪（克 g）",
+        ),
+        "/exercises/new/": (
+            "运动类型",
+            "运动时长（分钟）",
+            "强度",
+            "动作名称",
+            "组数",
+            "每组次数",
+            "负重（千克 kg）",
+            "删除本条",
+        ),
+        "/measurements/new/?kind=weight": (
+            "指标类型",
+            "数值（体重 kg，腰围 cm）",
+        ),
+        "/me/": (
+            "目标体重（千克 kg）",
+            "每周运动目标（分钟）",
+            "每周力量训练目标（次）",
+            "显示热量",
+        ),
+        "/me/password/": ("旧密码", "新密码", "确认新密码"),
+    }
+    forbidden_labels = (
+        "Occurred at",
+        "Meal type",
+        "Food",
+        "Portion",
+        "Fullness",
+        "Calories",
+        "Protein",
+        "Carbohydrates",
+        "Exercise type",
+        "Duration minutes",
+        "Exercise name",
+        "Reps per set",
+        "Load kg",
+        "Target weight",
+        "Old password",
+        "New password confirmation",
+    )
+
+    for path, expected_labels in expected_by_path.items():
+        page.goto(f"{live_server.url}{path}")
+        visible_labels = " ".join(page.locator("label").all_inner_texts())
+        assert all(label in visible_labels for label in expected_labels)
+        assert all(label not in visible_labels for label in forbidden_labels)
+
+
+@pytest.mark.django_db(transaction=True)
 def test_unsaved_meal_draft_survives_reload(page, live_server, client, user, settings):
     client.force_login(user)
     page.context.add_cookies(

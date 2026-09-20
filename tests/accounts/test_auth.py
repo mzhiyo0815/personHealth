@@ -3,6 +3,8 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
+from accounts.forms import PhoneAuthenticationForm, RegistrationForm
+
 
 @pytest.mark.django_db
 def test_phone_registration_hashes_password(client):
@@ -41,6 +43,16 @@ def test_registration_explains_phone_is_not_verified(client):
 
     assert response.status_code == 200
     assert "手机号不会经过短信验证，仅作为登录账号标识" in response.content.decode()
+
+
+def test_account_forms_use_chinese_password_labels():
+    registration = RegistrationForm()
+    login = PhoneAuthenticationForm()
+
+    assert registration.fields["password1"].label == "密码"
+    assert registration.fields["password2"].label == "确认密码"
+    assert "至少 8 位" in registration.fields["password1"].help_text
+    assert login.fields["password"].label == "密码"
 
 
 @pytest.mark.django_db

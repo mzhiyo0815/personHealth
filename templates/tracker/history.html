@@ -23,7 +23,7 @@
               <a href="{% url 'tracker:exercise-edit' record.pk %}">编辑</a>
               <a href="{% url 'tracker:exercise-delete-confirm' record.pk %}">删除</a>
             {% else %}
-              {{ record.get_kind_display }}：{{ record.value }}
+              {{ record.get_kind_display }}：{{ record.value }} {% if record.kind == "weight" %}千克（kg）{% else %}厘米（cm）{% endif %}
               <a href="{% url 'tracker:measurement-edit' record.pk %}">编辑</a>
               <a href="{% url 'tracker:measurement-delete-confirm' record.pk %}">删除</a>
             {% endif %}

@@ -79,6 +79,19 @@ def test_password_change_preserves_authenticated_session(client, user):
 
 
 @pytest.mark.django_db
+def test_password_change_form_uses_chinese_labels(client, user):
+    client.force_login(user)
+
+    content = client.get("/me/password/").content.decode()
+
+    assert "旧密码" in content
+    assert "新密码" in content
+    assert "确认新密码" in content
+    assert "Old password" not in content
+    assert "New password confirmation" not in content
+
+
+@pytest.mark.django_db
 def test_csv_export_is_utf8_and_contains_only_current_user(client, user, other_user):
     Meal.objects.create(user=user, meal_type="breakfast", food="豆浆")
     Meal.objects.create(user=other_user, meal_type="breakfast", food="秘密")
@@ -112,6 +125,16 @@ def test_profile_get_does_not_create_goal(client, user):
     client.force_login(user)
     assert client.get("/me/").status_code == 200
     assert not hasattr(user, "goal")
+
+
+@pytest.mark.django_db
+def test_profile_explains_json_and_csv_export_formats(client, user):
+    client.force_login(user)
+
+    content = client.get("/me/").content.decode()
+
+    assert "导出完整数据（JSON）" in content
+    assert "导出表格数据（CSV）" in content
 
 
 @pytest.mark.django_db

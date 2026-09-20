@@ -105,6 +105,20 @@ def test_trends_show_all_nutrition_charts_when_values_exist(client, user):
     assert "蛋白质趋势" in content
     assert "碳水趋势" in content
     assert "脂肪趋势" in content
+    assert "千卡（kcal）" in content
+    assert "克（g）" in content
+
+
+@pytest.mark.django_db
+def test_measurement_trends_display_chinese_units(client, user):
+    Measurement.objects.create(user=user, kind="weight", value=70)
+    Measurement.objects.create(user=user, kind="waist", value=82)
+    client.force_login(user)
+
+    content = client.get("/trends/").content.decode()
+
+    assert "千克（kg）" in content
+    assert "厘米（cm）" in content
 
 
 @pytest.mark.django_db
