@@ -1,4 +1,7 @@
 import pytest
+from django.utils import timezone
+
+from tracker.models import Exercise, Meal, Measurement, StrengthSet
 
 
 @pytest.mark.django_db
@@ -97,3 +100,71 @@ def test_successful_submit_clears_saved_draft(page, live_server, client, user, s
     page.goto(f"{live_server.url}/meals/new/")
 
     assert page.input_value("#id_food") == ""
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("width", (360, 390, 430, 1280))
+def test_primary_flows_do_not_overflow_at_supported_widths(
+    page, live_server, client, user, settings, width
+):
+    meal = Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="燕麦、鸡蛋、无糖豆浆和水果" * 8,
+        portion="一份完整早餐",
+        calories=520,
+        protein=28,
+        carbohydrates=62,
+        fat=18,
+        occurred_at=timezone.now(),
+    )
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=45,
+        intensity="moderate",
+        notes="全身力量训练",
+        occurred_at=meal.occurred_at,
+    )
+    StrengthSet.objects.create(
+        exercise=exercise,
+        exercise_name="保加利亚分腿蹲",
+        sets=3,
+        reps_per_set=10,
+        load_kg=20,
+    )
+    Measurement.objects.create(
+        user=user, kind="weight", value=70.2, occurred_at=meal.occurred_at
+    )
+    Measurement.objects.create(
+        user=user, kind="waist", value=82.5, occurred_at=meal.occurred_at
+    )
+    client.force_login(user)
+    page.context.add_cookies(
+        [{
+            "name": settings.SESSION_COOKIE_NAME,
+            "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+            "url": live_server.url,
+        }]
+    )
+    page.set_viewport_size({"width": width, "height": 800})
+
+    paths = (
+        "/",
+        "/history/",
+        "/trends/",
+        "/me/",
+        "/meals/new/",
+        "/exercises/new/",
+        "/measurements/new/?kind=weight",
+    )
+    for path in paths:
+        expected_url = f"{live_server.url}{path}"
+        response = page.goto(expected_url)
+        assert response.status == 200
+        assert page.url == expected_url
+        assert page.evaluate(
+            "document.documentElement.scrollWidth <= "
+            "document.documentElement.clientWidth"
+        )
+        assert page.locator('input[type="file"], img').count() == 0
