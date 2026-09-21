@@ -23,6 +23,7 @@
     const key = form.dataset.storageKey;
     const safeFields = [...form.elements].filter((field) =>
       field.name && field.name !== "csrfmiddlewaretoken" &&
+      !/-(TOTAL_FORMS|INITIAL_FORMS|MIN_NUM_FORMS|MAX_NUM_FORMS)$/.test(field.name) &&
       !["password", "file", "submit"].includes(field.type)
     );
     try {

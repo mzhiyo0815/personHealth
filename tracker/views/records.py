@@ -1,9 +1,12 @@
 import re
+from uuid import UUID
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from tracker.forms import ExerciseForm, MealForm, MeasurementForm, StrengthSetFormSet
@@ -12,6 +15,38 @@ from tracker.forms import ExerciseForm, MealForm, MeasurementForm, StrengthSetFo
 DRAFT_TOKEN_RE = re.compile(
     r"\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z"
 )
+
+MEAL_COPY_FIELDS = (
+    "meal_type",
+    "food",
+    "portion",
+    "fullness",
+    "calories",
+    "protein",
+    "carbohydrates",
+    "fat",
+)
+EXERCISE_COPY_FIELDS = (
+    "exercise_type",
+    "duration_minutes",
+    "intensity",
+    "notes",
+)
+STRENGTH_SET_COPY_FIELDS = (
+    "exercise_name",
+    "sets",
+    "reps_per_set",
+    "load_kg",
+    "order",
+)
+
+
+def owned_copy_source_or_404(queryset, raw_pk):
+    try:
+        pk = UUID(raw_pk)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise Http404 from error
+    return get_object_or_404(queryset, pk=pk)
 
 
 def redirect_after_save(request):
@@ -24,7 +59,14 @@ def redirect_after_save(request):
 
 @login_required
 def meal_create(request):
-    form = MealForm(request.POST or None)
+    initial = {}
+    copy_requested = request.method == "GET" and "copy" in request.GET
+    if copy_requested:
+        copy_pk = request.GET.get("copy")
+        source = owned_copy_source_or_404(request.user.meals, copy_pk)
+        initial = {field: getattr(source, field) for field in MEAL_COPY_FIELDS}
+        initial["occurred_at"] = timezone.now()
+    form = MealForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         meal = form.save(commit=False)
         meal.user = request.user
@@ -64,8 +106,31 @@ def meal_delete(request, pk):
 @login_required
 def exercise_create(request):
     exercise = None
-    form = ExerciseForm(request.POST or None)
-    formset = StrengthSetFormSet(request.POST or None, instance=exercise, prefix="strength_sets")
+    initial = {}
+    strength_initial = []
+    copy_requested = request.method == "GET" and "copy" in request.GET
+    if copy_requested:
+        copy_pk = request.GET.get("copy")
+        source = owned_copy_source_or_404(
+            request.user.exercises.prefetch_related("strength_sets"), copy_pk
+        )
+        initial = {
+            field: getattr(source, field) for field in EXERCISE_COPY_FIELDS
+        }
+        initial["occurred_at"] = timezone.now()
+        strength_initial = [
+            {field: getattr(strength_set, field) for field in STRENGTH_SET_COPY_FIELDS}
+            for strength_set in source.strength_sets.all()
+        ]
+    form = ExerciseForm(request.POST or None, initial=initial)
+    formset = StrengthSetFormSet(
+        request.POST or None,
+        instance=exercise,
+        prefix="strength_sets",
+        initial=strength_initial,
+    )
+    if request.method == "GET" and strength_initial:
+        formset.extra = len(strength_initial)
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         with transaction.atomic():
             exercise = form.save(commit=False)

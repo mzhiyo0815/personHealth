@@ -40,5 +40,10 @@ def today(request):
     return render(
         request,
         "tracker/today.html",
-        {"today": local_today, "completion": completion},
+        {
+            "today": local_today,
+            "completion": completion,
+            "recent_meals": request.user.meals.all()[:5],
+            "recent_exercises": request.user.exercises.all()[:5],
+        },
     )

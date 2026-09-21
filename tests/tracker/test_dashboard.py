@@ -61,6 +61,91 @@ def test_today_excludes_records_from_previous_local_day(client, user):
     assert response.context["completion"]["breakfast"] is False
 
 
+@pytest.mark.django_db
+def test_today_shows_five_most_recent_records_for_current_user(
+    client, user, other_user
+):
+    now = timezone.now()
+    own_meals = [
+        Meal.objects.create(
+            user=user,
+            meal_type="lunch",
+            food=f"自己的饮食 {index}",
+            occurred_at=now - timedelta(minutes=index),
+        )
+        for index in range(6)
+    ]
+    own_exercises = [
+        Exercise.objects.create(
+            user=user,
+            exercise_type=f"自己的运动 {index}",
+            duration_minutes=20,
+            intensity="moderate",
+            occurred_at=now - timedelta(minutes=index),
+        )
+        for index in range(6)
+    ]
+    other_meal = Meal.objects.create(
+        user=other_user, meal_type="dinner", food="他人的饮食", occurred_at=now
+    )
+    other_exercise = Exercise.objects.create(
+        user=other_user,
+        exercise_type="他人的运动",
+        duration_minutes=30,
+        intensity="easy",
+        occurred_at=now,
+    )
+    client.force_login(user)
+
+    response = client.get("/")
+    content = response.content.decode()
+
+    assert list(response.context["recent_meals"]) == own_meals[:5]
+    assert list(response.context["recent_exercises"]) == own_exercises[:5]
+    for record in own_meals[:5] + own_exercises[:5]:
+        assert f"?copy={record.pk}" in content
+    assert f"?copy={own_meals[5].pk}" not in content
+    assert f"?copy={own_exercises[5].pk}" not in content
+    assert str(other_meal.pk) not in content
+    assert str(other_exercise.pk) not in content
+
+
+@pytest.mark.django_db
+def test_today_shows_recent_record_empty_states(client, user):
+    client.force_login(user)
+
+    content = client.get("/").content.decode()
+
+    assert "暂无最近饮食" in content
+    assert "暂无最近运动" in content
+
+
+@pytest.mark.django_db
+def test_today_recent_records_show_local_time_and_chinese_exercise_type(client, user):
+    occurred_at = timezone.now().replace(second=0, microsecond=0)
+    Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="糙米饭",
+        occurred_at=occurred_at,
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=30,
+        intensity="moderate",
+        occurred_at=occurred_at,
+    )
+    client.force_login(user)
+
+    content = client.get("/").content.decode()
+    expected_time = timezone.localtime(occurred_at).strftime("%Y年%m月%d日 %H:%M")
+
+    assert content.count(expected_time) == 2
+    assert "力量训练：30 分钟" in content
+    assert "strength：30 分钟" not in content
+
+
 def test_today_requires_login(client):
     response = client.get("/")
 

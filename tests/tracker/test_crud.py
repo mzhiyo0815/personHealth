@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 import pytest
 from django.db import connection
+from django.utils import timezone
 
 from tracker.forms import (
     BaseStrengthSetFormSet,
@@ -140,6 +143,67 @@ def test_meal_create_allows_blank_nutrition_and_assigns_owner(client, user):
 
 
 @pytest.mark.django_db
+def test_meal_create_prefills_from_owned_record_with_current_time(client, user):
+    source = Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="鸡胸肉和糙米",
+        portion="各一份",
+        fullness=8,
+        calories="520.00",
+        protein="42.00",
+        carbohydrates="55.00",
+        fat="12.00",
+        occurred_at=timezone.now() - timedelta(days=3),
+    )
+    source.refresh_from_db()
+    client.force_login(user)
+    before = timezone.now()
+
+    response = client.get("/meals/new/", {"copy": source.pk})
+
+    after = timezone.now()
+    form = response.context["form"]
+    assert response.status_code == 200
+    assert before <= form.initial["occurred_at"] <= after
+    for field in (
+        "meal_type",
+        "food",
+        "portion",
+        "fullness",
+        "calories",
+        "protein",
+        "carbohydrates",
+        "fat",
+    ):
+        assert form.initial[field] == getattr(source, field)
+
+
+@pytest.mark.django_db
+def test_meal_copy_post_creates_new_record_without_mutating_source(client, user):
+    source = Meal.objects.create(
+        user=user, meal_type="breakfast", food="原早餐", portion="一份"
+    )
+    client.force_login(user)
+
+    response = client.post(
+        f"/meals/new/?copy={source.pk}",
+        {
+            "occurred_at": "2026-09-21T08:00",
+            "meal_type": "breakfast",
+            "food": "调整后的早餐",
+            "portion": "两份",
+        },
+    )
+
+    assert response.status_code == 302
+    assert user.meals.count() == 2
+    source.refresh_from_db()
+    assert source.food == "原早餐"
+    assert user.meals.exclude(pk=source.pk).get().food == "调整后的早餐"
+
+
+@pytest.mark.django_db
 def test_successful_create_redirects_to_existing_page(client, user):
     client.force_login(user)
 
@@ -225,6 +289,102 @@ def test_exercise_create_saves_multiple_strength_sets(client, user):
     assert list(
         exercise.strength_sets.values_list("exercise_name", flat=True)
     ) == ["深蹲", "箭步蹲"]
+
+
+@pytest.mark.django_db
+def test_exercise_create_prefills_owned_record_and_strength_sets(client, user):
+    source = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=50,
+        intensity="hard",
+        notes="上肢训练",
+        occurred_at=timezone.now() - timedelta(days=2),
+    )
+    StrengthSet.objects.create(
+        exercise=source,
+        exercise_name="卧推",
+        sets=4,
+        reps_per_set=8,
+        load_kg="45.00",
+        order=0,
+    )
+    StrengthSet.objects.create(
+        exercise=source,
+        exercise_name="划船",
+        sets=3,
+        reps_per_set=10,
+        load_kg="30.00",
+        order=1,
+    )
+    client.force_login(user)
+    before = timezone.now()
+
+    response = client.get("/exercises/new/", {"copy": source.pk})
+
+    after = timezone.now()
+    form = response.context["form"]
+    formset = response.context["formset"]
+    assert response.status_code == 200
+    assert before <= form.initial["occurred_at"] <= after
+    for field in ("exercise_type", "duration_minutes", "intensity", "notes"):
+        assert form.initial[field] == getattr(source, field)
+    assert [item.initial["exercise_name"] for item in formset.forms] == [
+        "卧推",
+        "划船",
+    ]
+    assert [item.initial["order"] for item in formset.forms] == [0, 1]
+    assert all(not item.initial.get("id") for item in formset.forms)
+
+
+@pytest.mark.django_db
+def test_exercise_copy_post_creates_new_record_without_mutating_source(
+    client, user
+):
+    source = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=40,
+        intensity="moderate",
+        notes="原备注",
+    )
+    source_set = StrengthSet.objects.create(
+        exercise=source,
+        exercise_name="深蹲",
+        sets=3,
+        reps_per_set=8,
+        order=0,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        f"/exercises/new/?copy={source.pk}",
+        {
+            "occurred_at": "2026-09-21T18:00",
+            "exercise_type": "strength",
+            "duration_minutes": 45,
+            "intensity": "hard",
+            "notes": "调整后备注",
+            "strength_sets-TOTAL_FORMS": 1,
+            "strength_sets-INITIAL_FORMS": 0,
+            "strength_sets-MIN_NUM_FORMS": 0,
+            "strength_sets-MAX_NUM_FORMS": 20,
+            "strength_sets-0-exercise_name": "深蹲调整",
+            "strength_sets-0-sets": 4,
+            "strength_sets-0-reps_per_set": 10,
+            "strength_sets-0-order": 0,
+        },
+    )
+
+    assert response.status_code == 302
+    assert user.exercises.count() == 2
+    source.refresh_from_db()
+    source_set.refresh_from_db()
+    assert source.notes == "原备注"
+    assert source_set.exercise_name == "深蹲"
+    copied = user.exercises.exclude(pk=source.pk).get()
+    assert copied.notes == "调整后备注"
+    assert copied.strength_sets.get().exercise_name == "深蹲调整"
 
 
 @pytest.mark.django_db

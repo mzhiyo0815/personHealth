@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from tracker.models import Exercise, Meal, Measurement, StrengthSet
@@ -20,6 +22,53 @@ def test_user_cannot_edit_another_users_meal(client, user, other_user):
     assert response.status_code == 404
     meal.refresh_from_db()
     assert meal.food == "原记录"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("copy_value", ("", "not-a-uuid", str(uuid.uuid4())))
+def test_meal_copy_rejects_invalid_or_missing_record(client, user, copy_value):
+    client.force_login(user)
+
+    response = client.get("/meals/new/", {"copy": copy_value})
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_meal_copy_rejects_another_users_record(client, user, other_user):
+    meal = Meal.objects.create(
+        user=other_user, meal_type="dinner", food="他人的晚餐"
+    )
+    client.force_login(user)
+
+    response = client.get("/meals/new/", {"copy": meal.pk})
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("copy_value", ("", "not-a-uuid", str(uuid.uuid4())))
+def test_exercise_copy_rejects_invalid_or_missing_record(client, user, copy_value):
+    client.force_login(user)
+
+    response = client.get("/exercises/new/", {"copy": copy_value})
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_exercise_copy_rejects_another_users_record(client, user, other_user):
+    exercise = Exercise.objects.create(
+        user=other_user,
+        exercise_type="walking",
+        duration_minutes=30,
+        intensity="easy",
+    )
+    client.force_login(user)
+
+    response = client.get("/exercises/new/", {"copy": exercise.pk})
+
+    assert response.status_code == 404
 
 
 @pytest.mark.django_db

@@ -181,6 +181,80 @@ def test_successful_submit_clears_saved_draft(page, live_server, client, user, s
 
 
 @pytest.mark.django_db(transaction=True)
+def test_mobile_recent_records_prefill_meal_and_exercise(
+    page, live_server, client, user, settings
+):
+    meal = Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="鸡胸肉糙米饭",
+        portion="一份",
+    )
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=45,
+        intensity="moderate",
+        notes="上肢训练",
+    )
+    StrengthSet.objects.create(
+        exercise=exercise,
+        exercise_name="卧推",
+        sets=4,
+        reps_per_set=8,
+        load_kg=40,
+        order=0,
+    )
+    StrengthSet.objects.create(
+        exercise=exercise,
+        exercise_name="划船",
+        sets=3,
+        reps_per_set=10,
+        load_kg=30,
+        order=1,
+    )
+    client.force_login(user)
+    page.context.add_cookies(
+        [{
+            "name": settings.SESSION_COOKIE_NAME,
+            "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+            "url": live_server.url,
+        }]
+    )
+    page.set_viewport_size({"width": 360, "height": 780})
+
+    page.goto(f"{live_server.url}/")
+    meal_link = page.locator(f'a[href="/meals/new/?copy={meal.pk}"]')
+    assert meal_link.bounding_box()["height"] >= 44
+    meal_link.click()
+    assert page.input_value("#id_food") == "鸡胸肉糙米饭"
+    assert page.input_value("#id_portion") == "一份"
+
+    page.goto(f"{live_server.url}/")
+    user_id = page.locator("body").get_attribute("data-user-id")
+    page.evaluate(
+        "entry => localStorage.setItem(entry.key, entry.value)",
+        {
+            "key": f"health-draft:{user_id}:/exercises/new/",
+            "value": '{"strength_sets-TOTAL_FORMS":"1"}',
+        },
+    )
+    exercise_link = page.locator(f'a[href="/exercises/new/?copy={exercise.pk}"]')
+    assert exercise_link.bounding_box()["height"] >= 44
+    exercise_link.click()
+    assert page.input_value("#id_exercise_type") == "strength"
+    assert page.input_value("#id_duration_minutes") == "45"
+    assert page.input_value("#id_strength_sets-TOTAL_FORMS") == "2"
+    assert page.input_value("#id_strength_sets-0-exercise_name") == "卧推"
+    assert page.input_value("#id_strength_sets-1-exercise_name") == "划船"
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.click('button[type="submit"]')
+    page.wait_for_url(f"{live_server.url}/")
+    copied = user.exercises.exclude(pk=exercise.pk).get()
+    assert copied.strength_sets.count() == 2
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("width", (360, 390, 430, 1280))
 def test_primary_flows_do_not_overflow_at_supported_widths(
     page, live_server, client, user, settings, width

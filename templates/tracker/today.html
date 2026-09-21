@@ -11,6 +11,37 @@
     <a href="{% url 'tracker:measurement-create' %}?kind=weight">记体重</a>
     <a href="{% url 'tracker:measurement-create' %}?kind=waist">记腰围</a>
   </section>
+  <section aria-labelledby="recent-title">
+    <h2 id="recent-title">最近记录</h2>
+    <h3>最近饮食</h3>
+    {% if recent_meals %}
+      <ul>
+        {% for meal in recent_meals %}
+          <li>
+            {{ meal.occurred_at|date:"Y年m月d日 H:i" }} ·
+            {{ meal.get_meal_type_display }}：{{ meal.food }}
+            <a href="{% url 'tracker:meal-create' %}?copy={{ meal.pk }}">复用</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>暂无最近饮食</p>
+    {% endif %}
+    <h3>最近运动</h3>
+    {% if recent_exercises %}
+      <ul>
+        {% for exercise in recent_exercises %}
+          <li>
+            {{ exercise.occurred_at|date:"Y年m月d日 H:i" }} ·
+            {{ exercise.get_exercise_type_display }}：{{ exercise.duration_minutes }} 分钟
+            <a href="{% url 'tracker:exercise-create' %}?copy={{ exercise.pk }}">复用</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>暂无最近运动</p>
+    {% endif %}
+  </section>
   <section aria-labelledby="completion-title">
     <h2 id="completion-title">今日完成</h2>
     <ul>
