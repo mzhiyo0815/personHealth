@@ -118,6 +118,13 @@ def test_weekly_goal_progress_handles_zero_goal_and_caps_bar():
     assert over_goal["bar_percentage"] == 100
 
 
+def test_weekly_goal_progress_uses_exact_average_for_percentage():
+    result = weekly_goal_progress(1, 30, 1)
+
+    assert result["weekly_average"] == Decimal("0.2")
+    assert result["percentage"] == 23
+
+
 def test_meal_completion_summary_deduplicates_daily_meal_types():
     day = date(2026, 9, 21)
 
@@ -372,3 +379,57 @@ def test_trend_summary_uses_default_goals_without_creating_row(client, user):
     assert summary["exercise"]["goal"] == 150
     assert summary["strength"]["goal"] == 2
     assert not UserGoal.objects.filter(user=user).exists()
+
+
+@pytest.mark.django_db
+def test_trends_render_period_summary_cards(client, user):
+    now = timezone.now()
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=70,
+        occurred_at=now - timedelta(days=1),
+    )
+    Measurement.objects.create(
+        user=user, kind="weight", value=69.5, occurred_at=now
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=90,
+        intensity="moderate",
+        occurred_at=now,
+    )
+    Meal.objects.create(
+        user=user, meal_type="breakfast", food="早餐", occurred_at=now
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="dinner",
+        food="晚餐",
+        occurred_at=now - timedelta(days=1),
+    )
+    client.force_login(user)
+
+    content = client.get("/trends/", {"range": "7"}).content.decode()
+
+    assert "本期摘要" in content
+    assert "体重变化" in content
+    assert "-0.50 千克（kg）" in content
+    assert "腰围变化" in content
+    assert "每周平均 90.0 分钟" in content
+    assert "目标 150 分钟" in content
+    assert "力量训练目标" in content
+    assert "7 天中记录了 2 天" in content
+
+
+@pytest.mark.django_db
+def test_trends_render_empty_and_insufficient_summary_states(client, user):
+    Measurement.objects.create(user=user, kind="weight", value=70)
+    client.force_login(user)
+
+    content = client.get("/trends/").content.decode()
+
+    assert "至少需要 2 天数据" in content
+    assert "暂无数据" in content
+    assert "0%" in content

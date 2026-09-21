@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.utils import timezone
 
@@ -320,3 +322,46 @@ def test_primary_flows_do_not_overflow_at_supported_widths(
             "document.documentElement.clientWidth"
         )
         assert page.locator('input[type="file"], img').count() == 0
+        if path == "/trends/":
+            assert page.locator(".summary-grid").is_visible()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_mobile_trend_summary_switches_range_without_overflow(
+    page, live_server, client, user, settings
+):
+    now = timezone.now()
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=30,
+        intensity="easy",
+        occurred_at=now,
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=70,
+        intensity="easy",
+        occurred_at=now - timedelta(days=10),
+    )
+    client.force_login(user)
+    page.context.add_cookies(
+        [{
+            "name": settings.SESSION_COOKIE_NAME,
+            "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+            "url": live_server.url,
+        }]
+    )
+    page.set_viewport_size({"width": 360, "height": 800})
+
+    page.goto(f"{live_server.url}/trends/?range=7")
+    assert page.locator(".summary-card").count() == 5
+    assert page.get_by_text("每周平均 30.0 分钟").is_visible()
+
+    page.get_by_role("link", name="30 天").click()
+    assert page.get_by_text("每周平均 23.3 分钟").is_visible()
+    assert page.evaluate(
+        "document.documentElement.scrollWidth <= "
+        "document.documentElement.clientWidth"
+    )

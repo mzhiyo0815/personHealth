@@ -6,6 +6,61 @@
     <a href="?range=7"{% if range_days == 7 %} aria-current="page"{% endif %}>7 天</a>
     <a href="?range=30"{% if range_days == 30 %} aria-current="page"{% endif %}>30 天</a>
   </nav>
+  <section aria-labelledby="summary-title">
+    <h2 id="summary-title">本期摘要</h2>
+    <div class="summary-grid">
+      <article class="summary-card">
+        <h3>体重变化</h3>
+        {% if trend_summary.weight.status == "empty" %}
+          <p>暂无数据</p>
+        {% elif trend_summary.weight.status == "insufficient" %}
+          <strong>{{ trend_summary.weight.latest|floatformat:2 }} 千克（kg）</strong>
+          <p>至少需要 2 天数据</p>
+        {% else %}
+          <strong>{% if trend_summary.weight.change > 0 %}+{% endif %}{{ trend_summary.weight.change|floatformat:2 }} 千克（kg）</strong>
+          <p>{{ trend_summary.weight.start|floatformat:2 }} → {{ trend_summary.weight.latest|floatformat:2 }}</p>
+        {% endif %}
+      </article>
+      <article class="summary-card">
+        <h3>腰围变化</h3>
+        {% if trend_summary.waist.status == "empty" %}
+          <p>暂无数据</p>
+        {% elif trend_summary.waist.status == "insufficient" %}
+          <strong>{{ trend_summary.waist.latest|floatformat:2 }} 厘米（cm）</strong>
+          <p>至少需要 2 天数据</p>
+        {% else %}
+          <strong>{% if trend_summary.waist.change > 0 %}+{% endif %}{{ trend_summary.waist.change|floatformat:2 }} 厘米（cm）</strong>
+          <p>{{ trend_summary.waist.start|floatformat:2 }} → {{ trend_summary.waist.latest|floatformat:2 }}</p>
+        {% endif %}
+      </article>
+      <article class="summary-card">
+        <h3>运动目标</h3>
+        <strong>每周平均 {{ trend_summary.exercise.weekly_average|floatformat:1 }} 分钟</strong>
+        {% if trend_summary.exercise.status == "ready" %}
+          <p>目标 {{ trend_summary.exercise.goal }} 分钟，已完成 {{ trend_summary.exercise.percentage }}%</p>
+          <progress aria-label="运动目标完成进度" max="100" value="{{ trend_summary.exercise.bar_percentage }}">{{ trend_summary.exercise.percentage }}%</progress>
+        {% else %}
+          <p>未设置每周运动目标</p>
+        {% endif %}
+      </article>
+      <article class="summary-card">
+        <h3>力量训练目标</h3>
+        <strong>每周平均 {{ trend_summary.strength.weekly_average|floatformat:1 }} 次</strong>
+        {% if trend_summary.strength.status == "ready" %}
+          <p>目标 {{ trend_summary.strength.goal }} 次，已完成 {{ trend_summary.strength.percentage }}%</p>
+          <progress aria-label="力量训练目标完成进度" max="100" value="{{ trend_summary.strength.bar_percentage }}">{{ trend_summary.strength.percentage }}%</progress>
+        {% else %}
+          <p>未设置每周力量训练目标</p>
+        {% endif %}
+      </article>
+      <article class="summary-card">
+        <h3>饮食记录完成率</h3>
+        <strong>{{ trend_summary.meals.percentage }}%</strong>
+        <p>{{ trend_summary.meals.range_days }} 天中记录了 {{ trend_summary.meals.recorded_days }} 天</p>
+        <p>{{ trend_summary.meals.completed_slots }}/{{ trend_summary.meals.total_slots }} 个餐次</p>
+      </article>
+    </div>
+  </section>
   {% include "components/line_chart.svg.html" with chart=weight_chart %}
   {% include "components/line_chart.svg.html" with chart=waist_chart %}
   <section>

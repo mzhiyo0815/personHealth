@@ -60,10 +60,11 @@ def rounded_percentage(numerator, denominator):
 
 
 def weekly_goal_progress(total, range_days, weekly_goal):
-    weekly_average = (Decimal(total) * 7 / Decimal(range_days)).quantize(
+    exact_weekly_average = Decimal(total) * 7 / Decimal(range_days)
+    weekly_average = exact_weekly_average.quantize(
         Decimal("0.1"), rounding=ROUND_HALF_UP
     )
-    percentage = rounded_percentage(weekly_average, weekly_goal)
+    percentage = rounded_percentage(exact_weekly_average, weekly_goal)
     return {
         "status": "ready" if percentage is not None else "no_goal",
         "total": total,
