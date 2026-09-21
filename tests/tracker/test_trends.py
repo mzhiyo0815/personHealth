@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from tracker.models import Exercise, Meal, Measurement
+from tracker.models import Exercise, Meal, Measurement, UserGoal
 from tracker.services.trends import (
     chart_payload,
     latest_daily_values,
@@ -274,3 +274,101 @@ def test_trends_exclude_other_users_measurements(client, user, other_user):
     response = client.get("/trends/")
 
     assert [value for _, value in response.context["weight_series"]] == [Decimal("70.00")]
+
+
+@pytest.mark.django_db
+def test_trend_summary_uses_current_users_records_and_goals(
+    client, user, other_user
+):
+    now = timezone.now()
+    UserGoal.objects.create(
+        user=user,
+        weekly_exercise_minutes=180,
+        weekly_strength_sessions=3,
+    )
+    for exercise_type in ("walking", "strength", "strength"):
+        Exercise.objects.create(
+            user=user,
+            exercise_type=exercise_type,
+            duration_minutes=30,
+            intensity="moderate",
+            occurred_at=now,
+        )
+    Meal.objects.create(
+        user=user, meal_type="breakfast", food="早餐", occurred_at=now
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="dinner",
+        food="晚餐",
+        occurred_at=now - timedelta(days=1),
+    )
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=70,
+        occurred_at=now - timedelta(days=1),
+    )
+    Measurement.objects.create(
+        user=user, kind="weight", value=69.5, occurred_at=now
+    )
+    Exercise.objects.create(
+        user=other_user,
+        exercise_type="strength",
+        duration_minutes=600,
+        intensity="hard",
+        occurred_at=now,
+    )
+    Meal.objects.create(
+        user=other_user, meal_type="lunch", food="他人的午餐", occurred_at=now
+    )
+    client.force_login(user)
+
+    response = client.get("/trends/", {"range": "7"})
+    summary = response.context["trend_summary"]
+
+    assert summary["weight"]["change"] == Decimal("-0.50")
+    assert summary["exercise"]["total"] == 90
+    assert summary["exercise"]["goal"] == 180
+    assert summary["strength"]["total"] == 2
+    assert summary["strength"]["goal"] == 3
+    assert summary["meals"]["recorded_days"] == 2
+    assert summary["meals"]["completed_slots"] == 2
+
+
+@pytest.mark.django_db
+def test_trend_summary_respects_selected_range(client, user):
+    now = timezone.now()
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=30,
+        intensity="easy",
+        occurred_at=now,
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=70,
+        intensity="easy",
+        occurred_at=now - timedelta(days=10),
+    )
+    client.force_login(user)
+
+    seven_day = client.get("/trends/", {"range": "7"})
+    thirty_day = client.get("/trends/", {"range": "30"})
+
+    assert seven_day.context["trend_summary"]["exercise"]["total"] == 30
+    assert thirty_day.context["trend_summary"]["exercise"]["total"] == 100
+
+
+@pytest.mark.django_db
+def test_trend_summary_uses_default_goals_without_creating_row(client, user):
+    client.force_login(user)
+
+    response = client.get("/trends/")
+    summary = response.context["trend_summary"]
+
+    assert summary["exercise"]["goal"] == 150
+    assert summary["strength"]["goal"] == 2
+    assert not UserGoal.objects.filter(user=user).exists()

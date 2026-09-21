@@ -1,14 +1,19 @@
+from datetime import timedelta
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.utils import timezone
 
-from tracker.models import Measurement
+from tracker.models import Measurement, UserGoal
 from tracker.services.trends import (
     chart_payload,
     daily_nutrition_series,
     latest_daily_values,
+    meal_completion_summary,
     meal_completion_series,
+    measurement_change_summary,
     weekly_exercise_summary,
+    weekly_goal_progress,
 )
 from tracker.views.dashboard import local_day_bounds
 
@@ -65,6 +70,23 @@ def trends(request):
     exercise_summary = weekly_exercise_summary(exercise_rows)
     for week in exercise_summary:
         week["is_partial"] = week["week_start"] + timedelta(days=6) > end_date
+    range_exercise_rows = [row for row in exercise_rows if row[0] >= start_date]
+    goal = UserGoal.objects.filter(user=request.user).first() or UserGoal()
+    trend_summary = {
+        "weight": measurement_change_summary(weight_series),
+        "waist": measurement_change_summary(waist_series),
+        "exercise": weekly_goal_progress(
+            sum(row[1] for row in range_exercise_rows),
+            range_days,
+            goal.weekly_exercise_minutes,
+        ),
+        "strength": weekly_goal_progress(
+            sum(row[2] == "strength" for row in range_exercise_rows),
+            range_days,
+            goal.weekly_strength_sessions,
+        ),
+        "meals": meal_completion_summary(meal_rows, range_days),
+    }
 
     context = {
         "range_days": range_days,
@@ -79,6 +101,7 @@ def trends(request):
         "exercise_summary": exercise_summary,
         "meal_completion": meal_completion_series(meal_rows, start_date, range_days),
         "nutrition_series": nutrition_series,
+        "trend_summary": trend_summary,
     }
     if nutrition_series:
         context["nutrition_charts"] = (
@@ -97,4 +120,3 @@ def trends(request):
             chart_payload(nutrition_series["fat"], "脂肪趋势", "克（g）", "fat"),
         )
     return render(request, "tracker/trends.html", context)
-from datetime import timedelta
