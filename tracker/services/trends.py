@@ -10,6 +10,26 @@ def latest_daily_values(rows):
     return sorted(latest.items())
 
 
+def measurement_change_summary(series):
+    if not series:
+        return {"status": "empty", "start": None, "latest": None, "change": None}
+    start = series[0][1]
+    latest = series[-1][1]
+    if len(series) == 1:
+        return {
+            "status": "insufficient",
+            "start": start,
+            "latest": latest,
+            "change": None,
+        }
+    return {
+        "status": "ready",
+        "start": start,
+        "latest": latest,
+        "change": (latest - start).quantize(Decimal("0.01")),
+    }
+
+
 def optional_nutrition_average(values):
     present = [value for value in values if value is not None]
     if not present:

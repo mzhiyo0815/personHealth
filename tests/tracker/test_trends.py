@@ -8,6 +8,7 @@ from tracker.models import Exercise, Meal, Measurement
 from tracker.services.trends import (
     chart_payload,
     latest_daily_values,
+    measurement_change_summary,
     optional_nutrition_average,
     weekly_exercise_summary,
 )
@@ -25,6 +26,44 @@ def test_latest_measurement_per_day_wins():
         (date(2026, 9, 17), Decimal("87.6")),
     ]
 
+
+def test_measurement_change_summary_handles_empty_and_single_point():
+    assert measurement_change_summary([]) == {
+        "status": "empty",
+        "start": None,
+        "latest": None,
+        "change": None,
+    }
+    assert measurement_change_summary(
+        [(date(2026, 9, 21), Decimal("70.20"))]
+    ) == {
+        "status": "insufficient",
+        "start": Decimal("70.20"),
+        "latest": Decimal("70.20"),
+        "change": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("start", "latest", "expected"),
+    (
+        ("70.00", "69.50", "-0.50"),
+        ("70.00", "70.40", "0.40"),
+        ("70.00", "70.00", "0.00"),
+    ),
+)
+def test_measurement_change_summary_calculates_period_delta(
+    start, latest, expected
+):
+    result = measurement_change_summary(
+        [
+            (date(2026, 9, 20), Decimal(start)),
+            (date(2026, 9, 21), Decimal(latest)),
+        ]
+    )
+
+    assert result["status"] == "ready"
+    assert result["change"] == Decimal(expected)
 
 def test_missing_nutrition_does_not_become_zero():
     assert optional_nutrition_average([None, None]) is None
