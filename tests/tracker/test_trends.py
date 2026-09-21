@@ -8,9 +8,11 @@ from tracker.models import Exercise, Meal, Measurement
 from tracker.services.trends import (
     chart_payload,
     latest_daily_values,
+    meal_completion_summary,
     measurement_change_summary,
     optional_nutrition_average,
     weekly_exercise_summary,
+    weekly_goal_progress,
 )
 
 
@@ -88,6 +90,48 @@ def test_weekly_exercise_summary_counts_minutes_and_strength_sessions():
         }
     ]
 
+
+def test_weekly_goal_progress_normalizes_selected_range():
+    seven_days = weekly_goal_progress(90, 7, 150)
+    thirty_days = weekly_goal_progress(300, 30, 150)
+
+    assert seven_days == {
+        "status": "ready",
+        "total": 90,
+        "weekly_average": Decimal("90.0"),
+        "goal": 150,
+        "percentage": 60,
+        "bar_percentage": 60,
+    }
+    assert thirty_days["weekly_average"] == Decimal("70.0")
+    assert thirty_days["percentage"] == 47
+
+
+def test_weekly_goal_progress_handles_zero_goal_and_caps_bar():
+    no_goal = weekly_goal_progress(14, 7, 0)
+    over_goal = weekly_goal_progress(300, 7, 150)
+
+    assert no_goal["status"] == "no_goal"
+    assert no_goal["percentage"] is None
+    assert no_goal["bar_percentage"] is None
+    assert over_goal["percentage"] == 200
+    assert over_goal["bar_percentage"] == 100
+
+
+def test_meal_completion_summary_deduplicates_daily_meal_types():
+    day = date(2026, 9, 21)
+
+    result = meal_completion_summary(
+        [(day, "breakfast"), (day, "breakfast"), (day, "lunch")], 7
+    )
+
+    assert result == {
+        "completed_slots": 2,
+        "total_slots": 28,
+        "recorded_days": 1,
+        "range_days": 7,
+        "percentage": 7,
+    }
 
 def test_chart_with_one_value_does_not_draw_a_trend_line():
     chart = chart_payload(

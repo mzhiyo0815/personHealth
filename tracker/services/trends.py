@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 def latest_daily_values(rows):
@@ -48,6 +48,41 @@ def weekly_exercise_summary(rows):
         {"week_start": week_start, **weeks[week_start]}
         for week_start in sorted(weeks)
     ]
+
+
+def rounded_percentage(numerator, denominator):
+    if not denominator:
+        return None
+    percentage = (
+        Decimal(numerator) * 100 / Decimal(denominator)
+    ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return max(0, int(percentage))
+
+
+def weekly_goal_progress(total, range_days, weekly_goal):
+    weekly_average = (Decimal(total) * 7 / Decimal(range_days)).quantize(
+        Decimal("0.1"), rounding=ROUND_HALF_UP
+    )
+    percentage = rounded_percentage(weekly_average, weekly_goal)
+    return {
+        "status": "ready" if percentage is not None else "no_goal",
+        "total": total,
+        "weekly_average": weekly_average,
+        "goal": weekly_goal,
+        "percentage": percentage,
+        "bar_percentage": min(percentage, 100) if percentage is not None else None,
+    }
+
+
+def meal_completion_summary(rows, range_days):
+    completed = set(rows)
+    return {
+        "completed_slots": len(completed),
+        "total_slots": range_days * 4,
+        "recorded_days": len({day for day, _ in completed}),
+        "range_days": range_days,
+        "percentage": rounded_percentage(len(completed), range_days * 4),
+    }
 
 
 def meal_completion_series(rows, start_date, days):
