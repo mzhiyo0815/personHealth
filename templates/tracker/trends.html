@@ -61,6 +61,44 @@
       </article>
     </div>
   </section>
+  <section aria-labelledby="comparison-title">
+    <h2 id="comparison-title">{{ period_comparison.label }}</h2>
+    <div class="comparison-grid">
+      <article class="comparison-item">
+        <h3>体重</h3>
+        {% if period_comparison.weight.status == "ready" %}
+          <strong>{% if period_comparison.weight.change > 0 %}+{% endif %}{{ period_comparison.weight.change|floatformat:2 }} 千克（kg）</strong>
+          <p>当前 {{ period_comparison.weight.current|floatformat:2 }} / 上期 {{ period_comparison.weight.previous|floatformat:2 }}</p>
+        {% else %}
+          <p>数据不足</p>
+        {% endif %}
+      </article>
+      <article class="comparison-item">
+        <h3>腰围</h3>
+        {% if period_comparison.waist.status == "ready" %}
+          <strong>{% if period_comparison.waist.change > 0 %}+{% endif %}{{ period_comparison.waist.change|floatformat:2 }} 厘米（cm）</strong>
+          <p>当前 {{ period_comparison.waist.current|floatformat:2 }} / 上期 {{ period_comparison.waist.previous|floatformat:2 }}</p>
+        {% else %}
+          <p>数据不足</p>
+        {% endif %}
+      </article>
+      <article class="comparison-item">
+        <h3>运动分钟</h3>
+        <strong>{% if period_comparison.exercise.change > 0 %}+{% endif %}{{ period_comparison.exercise.change }} 分钟</strong>
+        <p>当前 {{ period_comparison.exercise.current }} / 上期 {{ period_comparison.exercise.previous }}</p>
+      </article>
+      <article class="comparison-item">
+        <h3>力量训练</h3>
+        <strong>{% if period_comparison.strength.change > 0 %}+{% endif %}{{ period_comparison.strength.change }} 次</strong>
+        <p>当前 {{ period_comparison.strength.current }} / 上期 {{ period_comparison.strength.previous }}</p>
+      </article>
+      <article class="comparison-item">
+        <h3>饮食完成率</h3>
+        <strong>{% if period_comparison.meals.change > 0 %}+{% endif %}{{ period_comparison.meals.change }} 个百分点</strong>
+        <p>当前 {{ period_comparison.meals.current }}% / 上期 {{ period_comparison.meals.previous }}%</p>
+      </article>
+    </div>
+  </section>
   {% include "components/line_chart.svg.html" with chart=weight_chart %}
   {% include "components/line_chart.svg.html" with chart=waist_chart %}
   <section>

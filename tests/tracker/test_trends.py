@@ -643,3 +643,77 @@ def test_previous_period_comparison_changes_with_selected_range(client, user):
         "previous": 100,
         "change": 0,
     }
+
+
+@pytest.mark.django_db
+def test_trends_render_previous_period_comparison(client, user):
+    today = timezone.localdate()
+    current_start = today - timedelta(days=6)
+    previous_start = current_start - timedelta(days=7)
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=70.5,
+        occurred_at=local_noon(previous_start),
+    )
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=69.8,
+        occurred_at=local_noon(today),
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=60,
+        intensity="moderate",
+        occurred_at=local_noon(previous_start),
+    )
+    for exercise_type in ("walking", "strength", "strength"):
+        Exercise.objects.create(
+            user=user,
+            exercise_type=exercise_type,
+            duration_minutes=30,
+            intensity="moderate",
+            occurred_at=local_noon(current_start),
+        )
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="上期早餐",
+        occurred_at=local_noon(previous_start),
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="本期早餐",
+        occurred_at=local_noon(current_start),
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="dinner",
+        food="本期晚餐",
+        occurred_at=local_noon(today),
+    )
+    client.force_login(user)
+
+    content = client.get("/trends/", {"range": "7"}).content.decode()
+
+    assert "较前 7 天" in content
+    assert "-0.70 千克（kg）" in content
+    assert "+30 分钟" in content
+    assert "+1 次" in content
+    assert "+3 个百分点" in content
+    assert "当前 90 / 上期 60" in content
+    assert "当前 69.80 / 上期 70.50" in content
+
+
+@pytest.mark.django_db
+def test_trends_render_insufficient_previous_measurement_data(client, user):
+    Measurement.objects.create(user=user, kind="weight", value=70)
+    client.force_login(user)
+
+    content = client.get("/trends/").content.decode()
+
+    assert "较前 7 天" in content
+    assert content.count("数据不足") >= 2

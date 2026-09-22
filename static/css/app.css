@@ -42,6 +42,12 @@ svg { width: 100%; height: auto; max-height: 260px; color: var(--green); overflo
 .summary-card strong { display: block; font-size: 1.25rem; overflow-wrap: anywhere; }
 .summary-card p { margin: 6px 0 0; color: var(--muted); }
 .summary-card progress { width: 100%; margin-top: 10px; accent-color: var(--green); }
+.comparison-grid { display: grid; gap: 10px; }
+.comparison-item { min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.comparison-item:last-child { border-bottom: 0; }
+.comparison-item h3, .comparison-item p { margin: 0; }
+.comparison-item strong { display: block; margin: 4px 0; font-size: 1.15rem; overflow-wrap: anywhere; }
+.comparison-item p { color: var(--muted); }
 
 @media (max-width: 339px) {
   .summary-grid { grid-template-columns: 1fr; }
@@ -50,4 +56,5 @@ svg { width: 100%; height: auto; max-height: 260px; color: var(--green); overflo
 @media (min-width: 720px) {
   .page { padding-top: 40px; }
   .bottom-nav { left: 50%; right: auto; width: 720px; transform: translateX(-50%); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; }
+  .comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
 }
