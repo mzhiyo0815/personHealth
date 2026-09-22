@@ -18,6 +18,12 @@ from tracker.services.trends import (
 )
 
 
+def local_noon(day):
+    return timezone.make_aware(
+        datetime.combine(day, time(12, 0)), timezone.get_current_timezone()
+    )
+
+
 def test_latest_measurement_per_day_wins():
     rows = [
         (date(2026, 9, 16), Decimal("88.0")),
@@ -485,3 +491,155 @@ def test_trends_render_empty_and_insufficient_summary_states(client, user):
     assert "至少需要 2 天数据" in content
     assert "暂无数据" in content
     assert "0%" in content
+
+
+@pytest.mark.django_db
+def test_previous_period_comparison_uses_equal_owner_scoped_periods(
+    client, user, other_user
+):
+    today = timezone.localdate()
+    current_start = today - timedelta(days=6)
+    previous_start = current_start - timedelta(days=7)
+    before_previous = previous_start - timedelta(days=1)
+
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=70.5,
+        occurred_at=local_noon(previous_start),
+    )
+    Measurement.objects.create(
+        user=user,
+        kind="weight",
+        value=69.8,
+        occurred_at=local_noon(today),
+    )
+    Measurement.objects.create(
+        user=user,
+        kind="waist",
+        value=82,
+        occurred_at=local_noon(today),
+    )
+    Measurement.objects.create(
+        user=other_user,
+        kind="weight",
+        value=200,
+        occurred_at=local_noon(today),
+    )
+
+    Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=60,
+        intensity="moderate",
+        occurred_at=local_noon(previous_start),
+    )
+    for exercise_type in ("walking", "strength", "strength"):
+        Exercise.objects.create(
+            user=user,
+            exercise_type=exercise_type,
+            duration_minutes=30,
+            intensity="moderate",
+            occurred_at=local_noon(current_start),
+        )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=999,
+        intensity="hard",
+        occurred_at=local_noon(before_previous),
+    )
+    Exercise.objects.create(
+        user=other_user,
+        exercise_type="strength",
+        duration_minutes=500,
+        intensity="hard",
+        occurred_at=local_noon(today),
+    )
+
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="上期早餐",
+        occurred_at=local_noon(previous_start),
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="本期早餐",
+        occurred_at=local_noon(current_start),
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="dinner",
+        food="本期晚餐",
+        occurred_at=local_noon(today),
+    )
+    Meal.objects.create(
+        user=other_user,
+        meal_type="lunch",
+        food="他人的午餐",
+        occurred_at=local_noon(today),
+    )
+    client.force_login(user)
+
+    response = client.get("/trends/", {"range": "7"})
+    comparison = response.context["period_comparison"]
+
+    assert comparison["label"] == "较前 7 天"
+    assert comparison["weight"] == {
+        "status": "ready",
+        "current": Decimal("69.80"),
+        "previous": Decimal("70.50"),
+        "change": Decimal("-0.70"),
+    }
+    assert comparison["waist"]["status"] == "insufficient"
+    assert comparison["exercise"] == {"current": 90, "previous": 60, "change": 30}
+    assert comparison["strength"] == {"current": 2, "previous": 1, "change": 1}
+    assert comparison["meals"] == {"current": 7, "previous": 4, "change": 3}
+    assert response.context["trend_summary"]["exercise"]["total"] == 90
+    assert [value for _, value in response.context["weight_series"]] == [
+        Decimal("69.80")
+    ]
+
+
+@pytest.mark.django_db
+def test_previous_period_comparison_changes_with_selected_range(client, user):
+    today = timezone.localdate()
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=30,
+        intensity="easy",
+        occurred_at=local_noon(today),
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=70,
+        intensity="easy",
+        occurred_at=local_noon(today - timedelta(days=20)),
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=100,
+        intensity="easy",
+        occurred_at=local_noon(today - timedelta(days=40)),
+    )
+    client.force_login(user)
+
+    seven_day = client.get("/trends/", {"range": "7"})
+    thirty_day = client.get("/trends/", {"range": "30"})
+
+    assert seven_day.context["period_comparison"]["exercise"] == {
+        "current": 30,
+        "previous": 0,
+        "change": 30,
+    }
+    assert thirty_day.context["period_comparison"]["label"] == "较前 30 天"
+    assert thirty_day.context["period_comparison"]["exercise"] == {
+        "current": 100,
+        "previous": 100,
+        "change": 0,
+    }
