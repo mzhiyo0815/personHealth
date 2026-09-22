@@ -7,9 +7,11 @@ from django.utils import timezone
 from tracker.models import Exercise, Meal, Measurement, UserGoal
 from tracker.services.trends import (
     chart_payload,
+    latest_value_comparison,
     latest_daily_values,
     meal_completion_summary,
     measurement_change_summary,
+    numeric_comparison,
     optional_nutrition_average,
     weekly_exercise_summary,
     weekly_goal_progress,
@@ -66,6 +68,56 @@ def test_measurement_change_summary_calculates_period_delta(
 
     assert result["status"] == "ready"
     assert result["change"] == Decimal(expected)
+
+
+def test_latest_value_comparison_uses_each_period_latest_value():
+    previous = [
+        (date(2026, 9, 7), Decimal("71.00")),
+        (date(2026, 9, 14), Decimal("70.50")),
+    ]
+    current = [
+        (date(2026, 9, 15), Decimal("70.20")),
+        (date(2026, 9, 21), Decimal("69.80")),
+    ]
+
+    assert latest_value_comparison(current, previous) == {
+        "status": "ready",
+        "current": Decimal("69.80"),
+        "previous": Decimal("70.50"),
+        "change": Decimal("-0.70"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("current", "previous"),
+    (
+        ([], []),
+        ([(date(2026, 9, 21), Decimal("70"))], []),
+        ([], [(date(2026, 9, 14), Decimal("70"))]),
+    ),
+)
+def test_latest_value_comparison_requires_both_periods(current, previous):
+    assert latest_value_comparison(current, previous)["status"] == "insufficient"
+
+
+def test_numeric_comparison_handles_integer_and_decimal_values():
+    assert numeric_comparison(90, 60) == {
+        "current": 90,
+        "previous": 60,
+        "change": 30,
+    }
+    assert numeric_comparison(7, 14) == {
+        "current": 7,
+        "previous": 14,
+        "change": -7,
+    }
+    assert numeric_comparison(
+        Decimal("12.345"), Decimal("10.001"), Decimal("0.01")
+    ) == {
+        "current": Decimal("12.35"),
+        "previous": Decimal("10.00"),
+        "change": Decimal("2.35"),
+    }
 
 def test_missing_nutrition_does_not_become_zero():
     assert optional_nutrition_average([None, None]) is None

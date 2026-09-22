@@ -30,6 +30,38 @@ def measurement_change_summary(series):
     }
 
 
+def numeric_comparison(current, previous, quantum=None):
+    if quantum is None:
+        return {
+            "current": current,
+            "previous": previous,
+            "change": current - previous,
+        }
+    current_value = Decimal(current).quantize(quantum, rounding=ROUND_HALF_UP)
+    previous_value = Decimal(previous).quantize(quantum, rounding=ROUND_HALF_UP)
+    return {
+        "current": current_value,
+        "previous": previous_value,
+        "change": (current_value - previous_value).quantize(
+            quantum, rounding=ROUND_HALF_UP
+        ),
+    }
+
+
+def latest_value_comparison(current_series, previous_series):
+    if not current_series or not previous_series:
+        return {
+            "status": "insufficient",
+            "current": current_series[-1][1] if current_series else None,
+            "previous": previous_series[-1][1] if previous_series else None,
+            "change": None,
+        }
+    comparison = numeric_comparison(
+        current_series[-1][1], previous_series[-1][1], Decimal("0.01")
+    )
+    return {"status": "ready", **comparison}
+
+
 def optional_nutrition_average(values):
     present = [value for value in values if value is not None]
     if not present:
