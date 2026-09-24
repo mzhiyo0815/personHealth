@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from tracker.forms import HistoryFilterForm
 from tracker.models import Exercise, Meal, Measurement
+from tracker.views.dashboard import local_day_bounds
 
 
 def test_history_filter_form_accepts_empty_and_complete_valid_data():
@@ -233,22 +234,153 @@ def test_history_contains_only_current_users_records(client, user, other_user):
 
 
 @pytest.mark.django_db
-def test_history_date_filter_uses_local_date(client, user):
-    today = timezone.localdate()
-    Meal.objects.create(user=user, meal_type="lunch", food="今天")
+def test_history_combines_date_type_keyword_filters_and_owner_scope(
+    client, user, other_user
+):
+    day = timezone.localdate()
+    own_match = Meal.objects.create(
+        user=user, meal_type="lunch", food="燕麦碗", occurred_at=timezone.now()
+    )
+    Meal.objects.create(user=user, meal_type="lunch", food="米饭")
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=20,
+        intensity="easy",
+        notes="燕麦之后散步",
+    )
+    Meal.objects.create(user=other_user, meal_type="lunch", food="燕麦粥")
+    client.force_login(user)
+
+    response = client.get(
+        "/history/",
+        {
+            "start_date": day.isoformat(),
+            "end_date": day.isoformat(),
+            "record_type": "meal",
+            "keyword": "燕麦",
+        },
+    )
+
+    records = response.context["page"].object_list[0]["records"]
+    assert records == [own_match]
+    assert response.context["filter_valid"] is True
+    assert response.context["has_filters"] is True
+
+
+@pytest.mark.django_db
+def test_history_date_range_includes_local_boundaries_and_excludes_neighbors(
+    client, user
+):
+    day = timezone.localdate()
+    start, end = local_day_bounds(day)
+    included_start = Meal.objects.create(
+        user=user, meal_type="lunch", food="起点", occurred_at=start
+    )
+    included_end = Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="终点前",
+        occurred_at=end - timedelta(microseconds=1),
+    )
     Meal.objects.create(
         user=user,
         meal_type="lunch",
-        food="较早记录",
-        occurred_at=timezone.now() - timedelta(days=2),
+        food="前一天",
+        occurred_at=start - timedelta(microseconds=1),
+    )
+    Meal.objects.create(user=user, meal_type="lunch", food="后一天", occurred_at=end)
+    client.force_login(user)
+
+    response = client.get(
+        "/history/",
+        {"start_date": day.isoformat(), "end_date": day.isoformat()},
+    )
+
+    records = response.context["page"].object_list[0]["records"]
+    assert records == [included_end, included_start]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("food", "荞麦"), ("portion", "半碗"), ("notes", "公园慢跑")],
+)
+def test_history_keyword_matches_supported_text_fields(client, user, field, value):
+    meal = Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food=value if field == "food" else "午饭",
+        portion=value if field == "portion" else "",
+    )
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="running",
+        duration_minutes=20,
+        intensity="easy",
+        notes=value if field == "notes" else "",
     )
     client.force_login(user)
 
-    response = client.get("/history/", {"date": today.isoformat()})
-    content = response.content.decode()
+    response = client.get("/history/", {"keyword": value})
+    records = response.context["page"].object_list[0]["records"]
 
-    assert "今天" in content
-    assert "较早记录" not in content
+    assert records == ([exercise] if field == "notes" else [meal])
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("record_type", ["weight", "waist"])
+def test_history_keyword_excludes_measurements(client, user, record_type):
+    Measurement.objects.create(user=user, kind=record_type, value=70)
+    client.force_login(user)
+
+    response = client.get(
+        "/history/", {"record_type": record_type, "keyword": "70"}
+    )
+
+    assert list(response.context["page"].object_list) == []
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"start_date": "2026-09-24", "end_date": "2026-09-01"},
+        {"record_type": "invalid"},
+        {"start_date": "not-a-date"},
+    ],
+)
+def test_history_invalid_filters_show_no_records(client, user, params):
+    Meal.objects.create(user=user, meal_type="lunch", food="不应展示")
+    client.force_login(user)
+
+    response = client.get("/history/", params)
+
+    assert response.context["filter_valid"] is False
+    assert response.context["has_filters"] is False
+    assert list(response.context["page"].object_list) == []
+    assert "不应展示" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_history_filter_query_preserves_filters_and_omits_page(client, user):
+    client.force_login(user)
+
+    response = client.get(
+        "/history/",
+        {
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-24",
+            "record_type": "exercise",
+            "keyword": "跑步",
+            "page": "2",
+        },
+    )
+
+    assert response.context["filter_query"] == (
+        "start_date=2026-09-01&end_date=2026-09-24&"
+        "record_type=exercise&keyword=%E8%B7%91%E6%AD%A5"
+    )
 
 
 @pytest.mark.django_db

@@ -1,39 +1,69 @@
 from collections import defaultdict
-from datetime import date
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
 
+from tracker.forms import HistoryFilterForm
 from tracker.views.dashboard import local_day_bounds
-
-
-def parse_date(value):
-    try:
-        return date.fromisoformat(value) if value else None
-    except ValueError:
-        return None
 
 
 @login_required
 def history(request):
-    selected_date = parse_date(request.GET.get("date"))
-    querysets = (
-        ("meal", request.user.meals.all()),
-        ("exercise", request.user.exercises.all()),
-        ("measurement", request.user.measurements.all()),
-    )
-    current_timezone = timezone.get_current_timezone()
-    if selected_date:
-        start, end = local_day_bounds(selected_date)
-        has_records = any(
-            queryset.filter(occurred_at__gte=start, occurred_at__lt=end).exists()
-            for _, queryset in querysets
+    filter_form = HistoryFilterForm(request.GET)
+    filter_valid = filter_form.is_valid()
+    has_filters = False
+    querysets = ()
+
+    if filter_valid:
+        start_date = filter_form.cleaned_data["start_date"]
+        end_date = filter_form.cleaned_data["end_date"]
+        record_type = filter_form.cleaned_data["record_type"]
+        keyword = filter_form.cleaned_data["keyword"]
+        has_filters = bool(
+            start_date or end_date or record_type != "all" or keyword
         )
-        day_source = [selected_date] if has_records else []
-    else:
+
+        meals = request.user.meals.all()
+        exercises = request.user.exercises.all()
+        measurements = request.user.measurements.all()
+        if start_date:
+            start, _ = local_day_bounds(start_date)
+            meals = meals.filter(occurred_at__gte=start)
+            exercises = exercises.filter(occurred_at__gte=start)
+            measurements = measurements.filter(occurred_at__gte=start)
+        if end_date:
+            _, end = local_day_bounds(end_date)
+            meals = meals.filter(occurred_at__lt=end)
+            exercises = exercises.filter(occurred_at__lt=end)
+            measurements = measurements.filter(occurred_at__lt=end)
+        if keyword:
+            meals = meals.filter(
+                Q(food__icontains=keyword) | Q(portion__icontains=keyword)
+            )
+            exercises = exercises.filter(notes__icontains=keyword)
+            measurements = measurements.none()
+
+        if record_type == "all":
+            querysets = (
+                ("meal", meals),
+                ("exercise", exercises),
+                ("measurement", measurements),
+            )
+        elif record_type == "meal":
+            querysets = (("meal", meals),)
+        elif record_type == "exercise":
+            querysets = (("exercise", exercises),)
+        else:
+            querysets = (
+                ("measurement", measurements.filter(kind=record_type)),
+            )
+
+    if querysets:
+        current_timezone = timezone.get_current_timezone()
         date_queries = [
             queryset.annotate(
                 local_day=TruncDate("occurred_at", tzinfo=current_timezone)
@@ -42,7 +72,12 @@ def history(request):
             .order_by()
             for _, queryset in querysets
         ]
-        day_source = date_queries[0].union(*date_queries[1:]).order_by("-local_day")
+        day_source = date_queries[0]
+        if len(date_queries) > 1:
+            day_source = day_source.union(*date_queries[1:])
+        day_source = day_source.order_by("-local_day")
+    else:
+        day_source = []
 
     page = Paginator(day_source, 7).get_page(request.GET.get("page"))
     page_days = list(page.object_list)
@@ -68,8 +103,16 @@ def history(request):
         }
         for day in page_days
     ]
+    filter_params = request.GET.copy()
+    filter_params.pop("page", None)
     return render(
         request,
         "tracker/history.html",
-        {"page": page, "selected_date": selected_date},
+        {
+            "page": page,
+            "filter_form": filter_form,
+            "filter_query": filter_params.urlencode(),
+            "has_filters": has_filters,
+            "filter_valid": filter_valid,
+        },
     )
