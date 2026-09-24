@@ -5,7 +5,72 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
+from tracker.forms import HistoryFilterForm
 from tracker.models import Exercise, Meal, Measurement
+
+
+def test_history_filter_form_accepts_empty_and_complete_valid_data():
+    empty_form = HistoryFilterForm({})
+    complete_form = HistoryFilterForm(
+        {
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-24",
+            "record_type": "exercise",
+            "keyword": "  跑步  ",
+        }
+    )
+
+    assert empty_form.is_valid()
+    assert empty_form.cleaned_data["record_type"] == "all"
+    assert complete_form.is_valid()
+    assert complete_form.cleaned_data["keyword"] == "跑步"
+
+
+def test_history_filter_form_rejects_reversed_date_range():
+    form = HistoryFilterForm(
+        {
+            "start_date": "2026-09-24",
+            "end_date": "2026-09-01",
+            "record_type": "all",
+        }
+    )
+
+    assert not form.is_valid()
+    assert form.non_field_errors() == ["开始日期不能晚于结束日期。"]
+
+
+@pytest.mark.parametrize(
+    ("data", "field"),
+    [
+        ({"record_type": "unknown"}, "record_type"),
+        ({"record_type": "all", "keyword": "字" * 101}, "keyword"),
+    ],
+)
+def test_history_filter_form_rejects_unsafe_values(data, field):
+    form = HistoryFilterForm(data)
+
+    assert not form.is_valid()
+    assert field in form.errors
+    assert form.errors[field]
+
+
+def test_history_filter_form_has_expected_labels_choices_and_date_widgets():
+    form = HistoryFilterForm()
+
+    assert form.fields["start_date"].label == "开始日期"
+    assert form.fields["end_date"].label == "结束日期"
+    assert form.fields["record_type"].label == "记录类型"
+    assert form.fields["keyword"].label == "关键词"
+    assert list(form.fields["record_type"].choices) == [
+        ("all", "全部"),
+        ("meal", "饮食"),
+        ("exercise", "运动"),
+        ("weight", "体重"),
+        ("waist", "腰围"),
+    ]
+    assert form.fields["record_type"].initial == "all"
+    assert form.fields["start_date"].widget.input_type == "date"
+    assert form.fields["end_date"].widget.input_type == "date"
 
 
 @pytest.mark.django_db

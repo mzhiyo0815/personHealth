@@ -9,6 +9,50 @@ class DateTimeLocalInput(forms.DateTimeInput):
     input_type = "datetime-local"
 
 
+class HistoryFilterForm(forms.Form):
+    RECORD_TYPE_CHOICES = (
+        ("all", "全部"),
+        ("meal", "饮食"),
+        ("exercise", "运动"),
+        ("weight", "体重"),
+        ("waist", "腰围"),
+    )
+
+    start_date = forms.DateField(
+        required=False,
+        label="开始日期",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    end_date = forms.DateField(
+        required=False,
+        label="结束日期",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    record_type = forms.ChoiceField(
+        choices=RECORD_TYPE_CHOICES,
+        initial="all",
+        label="记录类型",
+        required=False,
+    )
+    keyword = forms.CharField(
+        required=False,
+        max_length=100,
+        strip=True,
+        label="关键词",
+    )
+
+    def clean_record_type(self):
+        return self.cleaned_data["record_type"] or "all"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+        if start_date and end_date and start_date > end_date:
+            raise forms.ValidationError("开始日期不能晚于结束日期。")
+        return cleaned_data
+
+
 class MealForm(forms.ModelForm):
     class Meta:
         model = Meal
