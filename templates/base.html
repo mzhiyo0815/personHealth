@@ -18,6 +18,7 @@
       <a href="{% url 'tracker:profile' %}"{% if request.resolver_match.url_name == 'profile' %} aria-current="page"{% endif %}>我的</a>
     </nav>
   {% endif %}
+  {% block scripts %}{% endblock %}
   <script src="{% static 'js/draft-form.js' %}" defer></script>
 </body>
 </html>

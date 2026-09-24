@@ -1,0 +1,9 @@
+<fieldset class="strength-row" data-formset-row>
+  <legend>动作 <span data-row-number>{{ row_number }}</span></legend>
+  {% for hidden in strength_form.hidden_fields %}{{ hidden }}{% endfor %}
+  {% for field in strength_form.visible_fields %}
+    {% if field.name == "DELETE" %}<span hidden>{{ field.label_tag }}{{ field }}</span>
+    {% else %}{% include "tracker/components/form_field.html" with field=field %}{% endif %}
+  {% endfor %}
+  <button type="button" class="secondary-button" data-remove-row>删除本条</button>
+</fieldset>

@@ -97,6 +97,83 @@ def test_health_forms_use_chinese_labels_with_units(db):
     assert formset.forms[0].fields["DELETE"].label == "删除本条"
 
 
+def test_record_number_fields_use_mobile_input_modes(db):
+    assert MealForm().fields["fullness"].widget.attrs["inputmode"] == "numeric"
+    for field in ("calories", "protein", "carbohydrates", "fat"):
+        assert MealForm().fields[field].widget.attrs["inputmode"] == "decimal"
+    assert (
+        ExerciseForm().fields["duration_minutes"].widget.attrs["inputmode"]
+        == "numeric"
+    )
+    assert StrengthSetForm().fields["sets"].widget.attrs["inputmode"] == "numeric"
+    assert (
+        StrengthSetForm().fields["reps_per_set"].widget.attrs["inputmode"]
+        == "numeric"
+    )
+    assert StrengthSetForm().fields["load_kg"].widget.attrs["inputmode"] == "decimal"
+    assert MeasurementForm().fields["value"].widget.attrs["inputmode"] == "decimal"
+
+
+@pytest.mark.django_db
+def test_record_create_pages_expose_typed_sections(client, user):
+    client.force_login(user)
+
+    meal = client.get("/meals/new/")
+    exercise = client.get("/exercises/new/")
+    measurement = client.get("/measurements/new/")
+
+    assert meal.context["form_kind"] == "meal"
+    assert exercise.context["form_kind"] == "exercise"
+    assert measurement.context["form_kind"] == "measurement"
+    assert 'data-optional-section="nutrition"' in meal.content.decode()
+    exercise_content = exercise.content.decode()
+    assert 'data-strength-formset="strength_sets"' in exercise_content
+    assert "data-formset-template" in exercise_content
+    assert "__prefix__" in exercise_content
+
+
+@pytest.mark.django_db
+def test_optional_sections_open_for_initial_values_and_errors(client, user):
+    meal = Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="鸡胸肉饭",
+        calories=500,
+    )
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=40,
+        intensity="moderate",
+    )
+    StrengthSet.objects.create(
+        exercise=exercise,
+        exercise_name="深蹲",
+        sets=3,
+        reps_per_set=8,
+        order=0,
+    )
+    client.force_login(user)
+
+    copied_meal = client.get("/meals/new/", {"copy": meal.pk}).content.decode()
+    invalid_meal = client.post(
+        "/meals/new/",
+        {
+            "occurred_at": "2026-09-24T08:00",
+            "meal_type": "breakfast",
+            "food": "早餐",
+            "calories": "-1",
+        },
+    ).content.decode()
+    strength_edit = client.get(f"/exercises/{exercise.pk}/edit/").content.decode()
+    walking_create = client.get("/exercises/new/").content.decode()
+
+    assert '<details data-optional-section="nutrition" open>' in copied_meal
+    assert '<details data-optional-section="nutrition" open>' in invalid_meal
+    assert '<details data-strength-section open>' in strength_edit
+    assert '<details data-strength-section open>' not in walking_create
+
+
 def test_forms_reject_negative_nutrition_and_excessive_duration():
     meal_form = MealForm(
         data={

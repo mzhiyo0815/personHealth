@@ -39,6 +39,33 @@ STRENGTH_SET_COPY_FIELDS = (
     "load_kg",
     "order",
 )
+NUTRITION_FIELDS = ("calories", "protein", "carbohydrates", "fat")
+STRENGTH_CONTENT_FIELDS = ("exercise_name", "sets", "reps_per_set", "load_kg")
+
+
+def form_fields_have_content(form, field_names):
+    return any(
+        form[name].value() not in (None, "") or bool(form[name].errors)
+        for name in field_names
+    )
+
+
+def record_form_context(form, title, form_kind, formset=None):
+    context = {"form": form, "title": title, "form_kind": form_kind}
+    if form_kind == "meal":
+        context["nutrition_open"] = form_fields_have_content(form, NUTRITION_FIELDS)
+    if formset is not None:
+        context["formset"] = formset
+        context["strength_open"] = (
+            form["exercise_type"].value() == "strength"
+            or bool(formset.non_form_errors())
+            or any(
+                child.errors
+                or form_fields_have_content(child, STRENGTH_CONTENT_FIELDS)
+                for child in formset.forms
+            )
+        )
+    return context
 
 
 def owned_copy_source_or_404(queryset, raw_pk):
@@ -72,7 +99,7 @@ def meal_create(request):
         meal.user = request.user
         meal.save()
         return redirect_after_save(request)
-    return render(request, "tracker/record_form.html", {"form": form, "title": "记录饮食"})
+    return render(request, "tracker/record_form.html", record_form_context(form, "记录饮食", "meal"))
 
 
 @login_required
@@ -82,7 +109,7 @@ def meal_edit(request, pk):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect_after_save(request)
-    return render(request, "tracker/record_form.html", {"form": form, "title": "编辑饮食"})
+    return render(request, "tracker/record_form.html", record_form_context(form, "编辑饮食", "meal"))
 
 
 @login_required
@@ -142,7 +169,7 @@ def exercise_create(request):
     return render(
         request,
         "tracker/record_form.html",
-        {"form": form, "formset": formset, "title": "记录运动"},
+        record_form_context(form, "记录运动", "exercise", formset),
     )
 
 
@@ -168,7 +195,7 @@ def exercise_edit(request, pk):
     return render(
         request,
         "tracker/record_form.html",
-        {"form": form, "formset": formset, "title": "编辑运动"},
+        record_form_context(form, "编辑运动", "exercise", formset),
     )
 
 
@@ -202,7 +229,7 @@ def measurement_create(request):
         measurement.save()
         return redirect_after_save(request)
     return render(
-        request, "tracker/record_form.html", {"form": form, "title": "记录身体指标"}
+        request, "tracker/record_form.html", record_form_context(form, "记录身体指标", "measurement")
     )
 
 
@@ -214,7 +241,7 @@ def measurement_edit(request, pk):
         form.save()
         return redirect_after_save(request)
     return render(
-        request, "tracker/record_form.html", {"form": form, "title": "编辑身体指标"}
+        request, "tracker/record_form.html", record_form_context(form, "编辑身体指标", "measurement")
     )
 
 

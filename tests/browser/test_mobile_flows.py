@@ -107,6 +107,8 @@ def test_all_forms_use_chinese_labels_and_show_units(
 
     for path, expected_labels in expected_by_path.items():
         page.goto(f"{live_server.url}{path}")
+        for summary in page.locator("details:not([open]) > summary").all():
+            summary.click()
         visible_labels = " ".join(page.locator("label").all_inner_texts())
         assert all(label in visible_labels for label in expected_labels)
         assert all(label not in visible_labels for label in forbidden_labels)
@@ -180,6 +182,122 @@ def test_successful_submit_clears_saved_draft(page, live_server, client, user, s
     page.goto(f"{live_server.url}/meals/new/")
 
     assert page.input_value("#id_food") == ""
+
+
+@pytest.mark.django_db(transaction=True)
+def test_mobile_strength_rows_can_be_added_removed_and_saved(
+    page, live_server, client, user, settings
+):
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.set_viewport_size({"width": 360, "height": 800})
+    page.goto(f"{live_server.url}/exercises/new/")
+    page.select_option("#id_exercise_type", "strength")
+    assert page.locator("[data-strength-section]").get_attribute("open") is not None
+    page.get_by_role("button", name="添加动作").click()
+    page.get_by_role("button", name="添加动作").click()
+    assert page.locator("[data-formset-row]:visible").count() == 3
+    page.fill("#id_strength_sets-0-exercise_name", "深蹲")
+    page.fill("#id_strength_sets-0-sets", "3")
+    page.fill("#id_strength_sets-0-reps_per_set", "8")
+    page.fill("#id_strength_sets-2-exercise_name", "硬拉")
+    page.fill("#id_strength_sets-2-sets", "3")
+    page.fill("#id_strength_sets-2-reps_per_set", "5")
+    page.locator("[data-formset-row]").nth(1).get_by_role("button", name="删除本条").click()
+    page.fill("#id_occurred_at", "2026-09-24T08:00")
+    page.fill("#id_duration_minutes", "45")
+    page.select_option("#id_intensity", "moderate")
+    page.get_by_role("button", name="保存").click()
+    page.wait_for_url(f"{live_server.url}/")
+    exercise = user.exercises.get()
+    assert list(exercise.strength_sets.values_list("exercise_name", flat=True)) == ["深蹲", "硬拉"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_dynamic_strength_draft_restores_rows_without_ids(
+    page, live_server, client, user, settings
+):
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.goto(f"{live_server.url}/exercises/new/")
+    page.select_option("#id_exercise_type", "strength")
+    page.get_by_role("button", name="添加动作").click()
+    page.fill("#id_strength_sets-1-exercise_name", "卧推")
+    page.wait_for_timeout(350)
+    draft = page.evaluate("JSON.parse(Object.values(localStorage)[0])")
+    assert draft["__formset_totals"]["strength_sets"] == 2
+    assert not any(key.endswith(("-id", "-exercise")) for key in draft)
+    page.reload()
+    assert page.locator("[data-formset-row]:visible").count() == 2
+    assert page.input_value("#id_strength_sets-1-exercise_name") == "卧推"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_optional_sections_follow_type_and_restored_draft(
+    page, live_server, client, user, settings
+):
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.goto(f"{live_server.url}/exercises/new/")
+    page.select_option("#id_exercise_type", "strength")
+    assert page.locator("[data-strength-section]").get_attribute("open") is not None
+    page.select_option("#id_exercise_type", "walking")
+    assert page.locator("[data-strength-section]").get_attribute("open") is None
+    user_id = page.locator("body").get_attribute("data-user-id")
+    page.evaluate(
+        "entry => localStorage.setItem(entry.key, entry.value)",
+        {
+            "key": f"health-draft:{user_id}:/exercises/new/",
+            "value": '{"exercise_type":"strength","strength_sets-0-DELETE":true,"__formset_totals":{"strength_sets":1}}',
+        },
+    )
+    page.reload()
+    assert page.locator("[data-formset-row]:visible").count() == 1
+
+    page.goto(f"{live_server.url}/meals/new/")
+    page.evaluate(
+        "entry => localStorage.setItem(entry.key, entry.value)",
+        {
+            "key": f"health-draft:{user_id}:/meals/new/",
+            "value": '{"calories":"520"}',
+        },
+    )
+    page.reload()
+    assert page.locator('[data-optional-section="nutrition"]').get_attribute("open") is not None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_storage_failure_does_not_block_record_submit(
+    page, live_server, client, user, settings
+):
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.goto(f"{live_server.url}/meals/new/")
+    page.fill("#id_occurred_at", "2026-09-24T08:00")
+    page.select_option("#id_meal_type", "breakfast")
+    page.fill("#id_food", "不依赖本地存储的早餐")
+    page.evaluate("""() => {
+      Storage.prototype.setItem = () => { throw new DOMException('full'); };
+    }""")
+    page.get_by_role("button", name="保存").click()
+    page.wait_for_url(f"{live_server.url}/")
+    assert user.meals.filter(food="不依赖本地存储的早餐").exists()
 
 
 @pytest.mark.django_db(transaction=True)

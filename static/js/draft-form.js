@@ -21,25 +21,39 @@
   }
   forms.forEach((form) => {
     const key = form.dataset.storageKey;
-    const safeFields = [...form.elements].filter((field) =>
+    const safeFields = () => [...form.elements].filter((field) =>
       field.name && field.name !== "csrfmiddlewaretoken" &&
       !/-(TOTAL_FORMS|INITIAL_FORMS|MIN_NUM_FORMS|MAX_NUM_FORMS)$/.test(field.name) &&
+      !/-\d+-(id|exercise)$/.test(field.name) &&
       !["password", "file", "submit"].includes(field.type)
     );
     try {
       const draft = JSON.parse(localStorage.getItem(key) || "{}");
-      safeFields.forEach((field) => {
+      Object.entries(draft.__formset_totals || {}).forEach(([formsetPrefix, count]) => {
+        window.healthRecordForms?.ensureTotal(formsetPrefix, count);
+      });
+      safeFields().forEach((field) => {
         if (!(field.name in draft)) return;
         if (field.type === "checkbox") field.checked = Boolean(draft[field.name]);
         else field.value = draft[field.name];
       });
-    } catch (_) { localStorage.removeItem(key); }
+      document.dispatchEvent(new CustomEvent("health:draft-restored"));
+    } catch (_) {
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
     const saveDraft = () => {
       const draft = {};
-      safeFields.forEach((field) => {
+      safeFields().forEach((field) => {
         draft[field.name] = field.type === "checkbox" ? field.checked : field.value;
       });
-      localStorage.setItem(key, JSON.stringify(draft));
+      draft.__formset_totals = {};
+      form.querySelectorAll("[data-strength-formset]").forEach((formset) => {
+        const formsetPrefix = formset.dataset.strengthFormset;
+        draft.__formset_totals[formsetPrefix] = Number(
+          form.querySelector(`#id_${formsetPrefix}-TOTAL_FORMS`).value
+        );
+      });
+      try { localStorage.setItem(key, JSON.stringify(draft)); } catch (_) {}
     };
     let timer;
     form.addEventListener("input", () => {
@@ -58,10 +72,12 @@
         form.append(tokenField);
       }
       tokenField.value = token;
-      sessionStorage.setItem(
-        "health-pending-draft",
-        JSON.stringify({key, token})
-      );
+      try {
+        sessionStorage.setItem(
+          "health-pending-draft",
+          JSON.stringify({key, token})
+        );
+      } catch (_) {}
     });
   });
 })();

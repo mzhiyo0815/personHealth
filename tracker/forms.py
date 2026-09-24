@@ -25,11 +25,11 @@ class MealForm(forms.ModelForm):
         )
         widgets = {
             "occurred_at": DateTimeLocalInput(format="%Y-%m-%dT%H:%M"),
-            "fullness": forms.NumberInput(attrs={"min": 1, "max": 10}),
-            "calories": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
-            "protein": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
-            "carbohydrates": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
-            "fat": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
+            "fullness": forms.NumberInput(attrs={"min": 1, "max": 10, "inputmode": "numeric"}),
+            "calories": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal"}),
+            "protein": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal"}),
+            "carbohydrates": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal"}),
+            "fat": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal"}),
         }
         labels = {
             "occurred_at": "记录时间",
@@ -60,7 +60,7 @@ class ExerciseForm(forms.ModelForm):
         )
         widgets = {
             "occurred_at": DateTimeLocalInput(format="%Y-%m-%dT%H:%M"),
-            "duration_minutes": forms.NumberInput(attrs={"min": 1, "max": 1440}),
+            "duration_minutes": forms.NumberInput(attrs={"min": 1, "max": 1440, "inputmode": "numeric"}),
         }
         labels = {
             "occurred_at": "记录时间",
@@ -86,9 +86,9 @@ class StrengthSetForm(forms.ModelForm):
         model = StrengthSet
         fields = ("exercise_name", "sets", "reps_per_set", "load_kg", "order")
         widgets = {
-            "sets": forms.NumberInput(attrs={"min": 1}),
-            "reps_per_set": forms.NumberInput(attrs={"min": 1}),
-            "load_kg": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
+            "sets": forms.NumberInput(attrs={"min": 1, "inputmode": "numeric"}),
+            "reps_per_set": forms.NumberInput(attrs={"min": 1, "inputmode": "numeric"}),
+            "load_kg": forms.NumberInput(attrs={"min": 0, "step": "0.01", "inputmode": "decimal"}),
             "order": forms.HiddenInput(),
         }
         labels = {
@@ -161,7 +161,7 @@ class MeasurementForm(forms.ModelForm):
         fields = ("occurred_at", "kind", "value")
         widgets = {
             "occurred_at": DateTimeLocalInput(format="%Y-%m-%dT%H:%M"),
-            "value": forms.NumberInput(attrs={"min": 0.01, "step": "0.01"}),
+            "value": forms.NumberInput(attrs={"min": 0.01, "step": "0.01", "inputmode": "decimal"}),
         }
         labels = {
             "occurred_at": "记录时间",

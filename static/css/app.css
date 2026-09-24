@@ -23,6 +23,13 @@ label { display: block; font-weight: 650; margin-bottom: 6px; }
 input, select, textarea, button { font: inherit; width: 100%; min-height: 44px; border: 1px solid #aebdb5; border-radius: 10px; padding: 10px 12px; background: #fff; }
 textarea { min-height: 96px; }
 button { background: var(--green); color: #fff; border: 0; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.secondary-button { background: var(--green-soft); color: var(--green); border: 1px solid var(--green); }
+details { margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+.strength-row { min-width: 0; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.strength-row legend { font-weight: 700; padding: 0 6px; }
+.record-form-actions { position: sticky; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 5; padding: 10px 0; background: linear-gradient(transparent, var(--surface) 28%); }
 a { color: var(--green); text-underline-offset: 3px; }
 .page a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 6px 4px; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #73c69e; outline-offset: 2px; }
@@ -57,4 +64,5 @@ svg { width: 100%; height: auto; max-height: 260px; color: var(--green); overflo
   .page { padding-top: 40px; }
   .bottom-nav { left: 50%; right: auto; width: 720px; transform: translateX(-50%); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; }
   .comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .record-form-actions { position: static; padding: 0; background: none; }
 }

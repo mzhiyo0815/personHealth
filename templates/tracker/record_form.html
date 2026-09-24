@@ -1,14 +1,50 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ title }}｜个人健康记录{% endblock %}
 {% block content %}
     <h1>{{ title }}</h1>
-    <form method="post" data-draft-form="record">
+    <form method="post" data-draft-form="record" data-form-kind="{{ form_kind }}">
       {% csrf_token %}
-      {{ form.as_p }}
-      {% if formset %}
-        {{ formset.management_form }}
-        {{ formset.as_p }}
+      {{ form.non_field_errors }}
+      {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+      {% if form_kind == "meal" %}
+        {% include "tracker/components/form_field.html" with field=form.occurred_at %}
+        {% include "tracker/components/form_field.html" with field=form.meal_type %}
+        {% include "tracker/components/form_field.html" with field=form.food %}
+        {% include "tracker/components/form_field.html" with field=form.portion %}
+        {% include "tracker/components/form_field.html" with field=form.fullness %}
+        <details data-optional-section="nutrition"{% if nutrition_open %} open{% endif %}>
+          <summary>营养信息（可选）</summary>
+          {% include "tracker/components/form_field.html" with field=form.calories %}
+          {% include "tracker/components/form_field.html" with field=form.protein %}
+          {% include "tracker/components/form_field.html" with field=form.carbohydrates %}
+          {% include "tracker/components/form_field.html" with field=form.fat %}
+        </details>
+      {% elif form_kind == "exercise" %}
+        {% include "tracker/components/form_field.html" with field=form.occurred_at %}
+        {% include "tracker/components/form_field.html" with field=form.exercise_type %}
+        {% include "tracker/components/form_field.html" with field=form.duration_minutes %}
+        {% include "tracker/components/form_field.html" with field=form.intensity %}
+        {% include "tracker/components/form_field.html" with field=form.notes %}
+        {{ formset.non_form_errors }}
+        <details data-strength-section{% if strength_open %} open{% endif %}>
+          <summary>力量训练动作</summary>
+          <div data-strength-formset="{{ formset.prefix }}" data-max-forms="20">
+            {{ formset.management_form }}
+            <div data-formset-rows>
+              {% for strength_form in formset.forms %}
+                {% include "tracker/components/strength_row.html" with row_number=forloop.counter %}
+              {% endfor %}
+            </div>
+            <template data-formset-template>{% include "tracker/components/strength_row.html" with strength_form=formset.empty_form row_number="__number__" %}</template>
+            <button type="button" class="secondary-button" data-add-row>添加动作</button>
+            <p class="helptext" data-formset-limit hidden>最多可添加 20 个动作。</p>
+          </div>
+        </details>
+      {% else %}
+        {% for field in form.visible_fields %}{% include "tracker/components/form_field.html" with field=field %}{% endfor %}
       {% endif %}
-      <button type="submit">保存</button>
+      <div class="record-form-actions"><button type="submit">保存</button></div>
     </form>
 {% endblock %}
+{% block scripts %}<script src="{% static 'js/record-form.js' %}" defer></script>{% endblock %}
