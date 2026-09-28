@@ -384,6 +384,109 @@ def test_history_filter_query_preserves_filters_and_omits_page(client, user):
 
 
 @pytest.mark.django_db
+def test_history_filter_query_uses_cleaned_fields_only(client, user):
+    client.force_login(user)
+
+    response = client.get(
+        "/history/",
+        {"keyword": "  燕麦  ", "page": "2", "unexpected": "ignored"},
+    )
+
+    assert response.context["filter_query"] == "keyword=%E7%87%95%E9%BA%A6"
+
+
+@pytest.mark.django_db
+def test_history_renders_filter_controls_and_invalid_state(client, user):
+    Meal.objects.create(user=user, meal_type="lunch", food="不应展示")
+    client.force_login(user)
+
+    response = client.get(
+        "/history/",
+        {
+            "start_date": "2026-09-24",
+            "end_date": "2026-09-01",
+            "record_type": "meal",
+            "keyword": "燕麦",
+        },
+    )
+    content = response.content.decode()
+
+    assert 'class="history-filters"' in content
+    assert 'class="history-filter-grid"' in content
+    for field_name, label in (
+        ("start_date", "开始日期"),
+        ("end_date", "结束日期"),
+        ("record_type", "记录类型"),
+        ("keyword", "关键词"),
+    ):
+        assert f'name="{field_name}"' in content
+        assert label in content
+    assert 'name="date"' not in content
+    assert "开始日期不能晚于结束日期。" in content
+    assert "请修正筛选条件。" in content
+    assert "不应展示" not in content
+
+
+@pytest.mark.django_db
+def test_history_renders_distinct_empty_states(client, user):
+    client.force_login(user)
+
+    filtered = client.get("/history/", {"keyword": "不存在"}).content.decode()
+    unfiltered = client.get("/history/").content.decode()
+
+    assert "没有符合筛选条件的记录。" in filtered
+    assert 'href="/history/"' in filtered
+    assert "清除筛选" in filtered
+    assert "暂无记录。" not in filtered
+    assert "暂无记录。" in unfiltered
+    assert "没有符合筛选条件的记录。" not in unfiltered
+
+
+@pytest.mark.django_db
+def test_history_pagination_links_preserve_all_filters(client, user):
+    now = timezone.now()
+    for days_ago in range(8):
+        Meal.objects.create(
+            user=user,
+            meal_type="lunch",
+            food=f"燕麦第 {days_ago} 天",
+            occurred_at=now - timedelta(days=days_ago),
+        )
+    client.force_login(user)
+    start_date = (timezone.localdate(now) - timedelta(days=8)).isoformat()
+    end_date = timezone.localdate(now).isoformat()
+
+    first_page = client.get(
+        "/history/",
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "record_type": "meal",
+            "keyword": "燕麦",
+        },
+    ).content.decode()
+    second_page = client.get(
+        "/history/",
+        {
+            "page": "2",
+            "start_date": start_date,
+            "end_date": end_date,
+            "record_type": "meal",
+            "keyword": "燕麦",
+        },
+    ).content.decode()
+    preserved_query = (
+        f"start_date={start_date}&amp;end_date={end_date}&amp;"
+        "record_type=meal&amp;keyword=%E7%87%95%E9%BA%A6"
+    )
+
+    assert f'href="?page=2&amp;{preserved_query}"' in first_page
+    assert "第 1 / 2 页" in first_page
+    assert f'href="?page=1&amp;{preserved_query}"' in second_page
+    assert "第 2 / 2 页" in second_page
+
+
+@pytest.mark.django_db
 def test_measurement_quick_link_preselects_kind(client, user):
     client.force_login(user)
 

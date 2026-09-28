@@ -2,10 +2,22 @@
 {% block title %}历史｜个人健康记录{% endblock %}
 {% block content %}
   <h1>历史记录</h1>
-  <form method="get">
-    <label for="history-date">查看日期</label>
-    <input id="history-date" name="date" type="date" value="{{ selected_date|date:'Y-m-d' }}">
-    <button type="submit">筛选</button>
+  <form method="get" class="history-filters">
+    {% if filter_form.errors %}<p>请修正筛选条件。</p>{% endif %}
+    {{ filter_form.non_field_errors }}
+    <div class="history-filter-grid">
+      {% for field in filter_form %}
+        <div>
+          {{ field.label_tag }}
+          {{ field }}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="history-filter-actions">
+      <button type="submit">筛选</button>
+      {% if has_filters %}<a href="{% url 'tracker:history' %}">清除筛选</a>{% endif %}
+    </div>
   </form>
   {% for group in page %}
     <section>
@@ -32,8 +44,15 @@
       </ul>
     </section>
   {% empty %}
-    <p>暂无记录。</p>
+    {% if filter_valid and has_filters %}
+      <p>没有符合筛选条件的记录。</p>
+    {% elif filter_valid %}
+      <p>暂无记录。</p>
+    {% endif %}
   {% endfor %}
-  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">上一页</a>{% endif %}
-  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">下一页</a>{% endif %}
+  <nav class="history-pagination" aria-label="历史记录分页">
+    {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if filter_query %}&amp;{{ filter_query }}{% endif %}">上一页</a>{% endif %}
+    <span>第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span>
+    {% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if filter_query %}&amp;{{ filter_query }}{% endif %}">下一页</a>{% endif %}
+  </nav>
 {% endblock %}

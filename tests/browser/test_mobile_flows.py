@@ -446,6 +446,71 @@ def test_primary_flows_do_not_overflow_at_supported_widths(
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("width", (360, 390, 430, 1280))
+def test_history_filters_are_responsive_and_interactive(
+    page, live_server, client, user, settings, width
+):
+    today = timezone.localdate()
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="燕麦早餐",
+        occurred_at=timezone.now(),
+    )
+    Meal.objects.create(
+        user=user,
+        meal_type="lunch",
+        food="米饭午餐",
+        occurred_at=timezone.now(),
+    )
+    Exercise.objects.create(
+        user=user,
+        exercise_type="walking",
+        duration_minutes=20,
+        intensity="easy",
+        notes="燕麦后散步",
+        occurred_at=timezone.now(),
+    )
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.set_viewport_size({"width": width, "height": 800})
+    page.goto(f"{live_server.url}/history/")
+
+    page.fill("#id_start_date", today.isoformat())
+    page.fill("#id_end_date", today.isoformat())
+    page.select_option("#id_record_type", "meal")
+    page.fill("#id_keyword", "燕麦")
+    page.get_by_role("button", name="筛选").click()
+    page.wait_for_load_state()
+
+    assert page.get_by_text("燕麦早餐", exact=False).is_visible()
+    assert page.get_by_text("米饭午餐", exact=False).count() == 0
+    assert page.get_by_text("燕麦后散步", exact=False).count() == 0
+    assert page.get_by_role("link", name="清除筛选").is_visible()
+    assert page.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+    column_count = page.locator(".history-filter-grid").evaluate(
+        "element => getComputedStyle(element).gridTemplateColumns.split(' ').length"
+    )
+    assert column_count == (2 if width >= 720 else 1)
+    for selector in (
+        "#id_start_date",
+        "#id_end_date",
+        "#id_record_type",
+        "#id_keyword",
+        '.history-filters button[type="submit"]',
+        ".history-filter-actions a",
+    ):
+        box = page.locator(selector).bounding_box()
+        assert box["height"] >= 44
+
+
+@pytest.mark.django_db(transaction=True)
 def test_mobile_trend_summary_switches_range_without_overflow(
     page, live_server, client, user, settings
 ):

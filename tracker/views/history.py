@@ -1,4 +1,5 @@
 from collections import defaultdict
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -103,15 +104,19 @@ def history(request):
         }
         for day in page_days
     ]
-    filter_params = request.GET.copy()
-    filter_params.pop("page", None)
+    filter_params = {}
+    if filter_valid:
+        for name in ("start_date", "end_date", "record_type", "keyword"):
+            value = filter_form.cleaned_data[name]
+            if value and value != "all":
+                filter_params[name] = value.isoformat() if name.endswith("date") else value
     return render(
         request,
         "tracker/history.html",
         {
             "page": page,
             "filter_form": filter_form,
-            "filter_query": filter_params.urlencode(),
+            "filter_query": urlencode(filter_params),
             "has_filters": has_filters,
             "filter_valid": filter_valid,
         },
