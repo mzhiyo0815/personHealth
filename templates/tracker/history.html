@@ -30,10 +30,38 @@
               {{ record.get_meal_type_display }}：{{ record.food }}
               <a href="{% url 'tracker:meal-edit' record.pk %}">编辑</a>
               <a href="{% url 'tracker:meal-delete-confirm' record.pk %}">删除</a>
+              <details class="history-detail">
+                <summary>查看详情</summary>
+                {% if record.portion or record.fullness != None or record.calories != None or record.protein != None or record.carbohydrates != None or record.fat != None %}
+                  <ul>
+                    {% if record.portion %}<li>份量/备注：{{ record.portion }}</li>{% endif %}
+                    {% if record.fullness != None %}<li>饱腹感：{{ record.fullness }} / 10</li>{% endif %}
+                    {% if record.calories != None %}<li>热量：{{ record.calories }} 千卡（kcal）</li>{% endif %}
+                    {% if record.protein != None %}<li>蛋白质：{{ record.protein }} 克（g）</li>{% endif %}
+                    {% if record.carbohydrates != None %}<li>碳水化合物：{{ record.carbohydrates }} 克（g）</li>{% endif %}
+                    {% if record.fat != None %}<li>脂肪：{{ record.fat }} 克（g）</li>{% endif %}
+                  </ul>
+                {% else %}
+                  <p>未填写其他信息</p>
+                {% endif %}
+              </details>
             {% elif record.record_type == "exercise" %}
               {{ record.get_exercise_type_display }}：{{ record.duration_minutes }} 分钟
               <a href="{% url 'tracker:exercise-edit' record.pk %}">编辑</a>
               <a href="{% url 'tracker:exercise-delete-confirm' record.pk %}">删除</a>
+              <details class="history-detail">
+                <summary>查看详情</summary>
+                <p>强度：{{ record.get_intensity_display }}</p>
+                {% if record.notes %}<p>备注：{{ record.notes }}</p>{% endif %}
+                {% if record.exercise_type == "strength" and record.strength_sets.all %}
+                  <h3>力量训练动作</h3>
+                  <ol>
+                    {% for strength_set in record.strength_sets.all %}
+                      <li>{{ strength_set.exercise_name }}：{{ strength_set.sets }} 组，每组 {{ strength_set.reps_per_set }} 次{% if strength_set.load_kg != None %}，{{ strength_set.load_kg }} 千克（kg）{% endif %}</li>
+                    {% endfor %}
+                  </ol>
+                {% endif %}
+              </details>
             {% else %}
               {{ record.get_kind_display }}：{{ record.value }} {% if record.kind == "weight" %}千克（kg）{% else %}厘米（cm）{% endif %}
               <a href="{% url 'tracker:measurement-edit' record.pk %}">编辑</a>

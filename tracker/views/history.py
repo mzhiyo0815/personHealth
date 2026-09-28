@@ -87,6 +87,8 @@ def history(request):
         start, _ = local_day_bounds(min(page_days))
         _, end = local_day_bounds(max(page_days))
         for record_type, queryset in querysets:
+            if record_type == "exercise":
+                queryset = queryset.prefetch_related("strength_sets")
             for record in queryset.filter(
                 occurred_at__gte=start, occurred_at__lt=end
             ):

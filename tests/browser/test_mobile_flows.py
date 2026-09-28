@@ -511,6 +511,49 @@ def test_history_filters_are_responsive_and_interactive(
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("width", (360, 390, 430, 1280))
+def test_history_details_expand_without_overflow(
+    page, live_server, client, user, settings, width
+):
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="燕麦",
+        portion="一大碗",
+        calories=350,
+    )
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=30,
+        intensity="moderate",
+    )
+    StrengthSet.objects.create(
+        exercise=exercise, exercise_name="深蹲", sets=3, reps_per_set=8,
+        load_kg=40,
+    )
+    client.force_login(user)
+    page.context.add_cookies([{
+        "name": settings.SESSION_COOKIE_NAME,
+        "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+        "url": live_server.url,
+    }])
+    page.set_viewport_size({"width": width, "height": 800})
+    page.goto(f"{live_server.url}/history/")
+
+    summaries = page.locator(".history-detail summary")
+    assert summaries.count() == 2
+    for summary in summaries.all():
+        assert summary.bounding_box()["height"] >= 44
+        summary.click()
+    assert page.get_by_text("热量：350.00 千卡（kcal）").is_visible()
+    assert page.get_by_text("深蹲：3 组，每组 8 次，40.00 千克（kg）").is_visible()
+    assert page.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+
+
+@pytest.mark.django_db(transaction=True)
 def test_mobile_trend_summary_switches_range_without_overflow(
     page, live_server, client, user, settings
 ):

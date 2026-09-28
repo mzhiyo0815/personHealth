@@ -6,7 +6,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from tracker.forms import HistoryFilterForm
-from tracker.models import Exercise, Meal, Measurement
+from tracker.models import Exercise, Meal, Measurement, StrengthSet
 from tracker.views.dashboard import local_day_bounds
 
 
@@ -572,3 +572,100 @@ def test_history_displays_units_for_exercise_weight_and_waist(client, user):
     assert "30 分钟" in content
     assert "70.20 千克（kg）" in content
     assert "82.50 厘米（cm）" in content
+
+
+@pytest.mark.django_db
+def test_history_detail_shows_optional_meal_values_and_empty_state(client, user):
+    Meal.objects.create(
+        user=user,
+        meal_type="breakfast",
+        food="鸡蛋",
+        portion="两只",
+        fullness=7,
+        calories=0,
+        protein=12,
+        carbohydrates=0,
+        fat=5,
+    )
+    Meal.objects.create(user=user, meal_type="lunch", food="白米饭")
+    client.force_login(user)
+
+    content = client.get("/history/").content.decode()
+
+    assert content.count("查看详情") == 2
+    assert "份量/备注：两只" in content
+    assert "饱腹感：7 / 10" in content
+    assert "热量：0.00 千卡（kcal）" in content
+    assert "蛋白质：12.00 克（g）" in content
+    assert "碳水化合物：0.00 克（g）" in content
+    assert "脂肪：5.00 克（g）" in content
+    assert "未填写其他信息" in content
+
+
+@pytest.mark.django_db
+def test_history_detail_shows_ordered_strength_sets_without_other_user_data(
+    client, user, other_user
+):
+    exercise = Exercise.objects.create(
+        user=user,
+        exercise_type="strength",
+        duration_minutes=30,
+        intensity="moderate",
+        notes="腿部训练",
+    )
+    StrengthSet.objects.create(
+        exercise=exercise, exercise_name="硬拉", sets=3, reps_per_set=5,
+        load_kg=0, order=1,
+    )
+    StrengthSet.objects.create(
+        exercise=exercise, exercise_name="深蹲", sets=4, reps_per_set=8,
+        load_kg=40, order=0,
+    )
+    other_exercise = Exercise.objects.create(
+        user=other_user, exercise_type="strength", duration_minutes=20,
+        intensity="easy",
+    )
+    StrengthSet.objects.create(
+        exercise=other_exercise, exercise_name="他人的动作", sets=1,
+        reps_per_set=1,
+    )
+    client.force_login(user)
+
+    content = client.get("/history/").content.decode()
+
+    assert "强度：中等" in content
+    assert "备注：腿部训练" in content
+    assert content.index("深蹲") < content.index("硬拉")
+    assert "4 组" in content and "每组 8 次" in content
+    assert "40.00 千克（kg）" in content
+    assert "0.00 千克（kg）" in content
+    assert "他人的动作" not in content
+
+
+@pytest.mark.django_db
+def test_history_detail_prefetches_strength_sets_for_current_page(client, user):
+    for index in range(4):
+        exercise = Exercise.objects.create(
+            user=user,
+            exercise_type="strength",
+            duration_minutes=30,
+            intensity="moderate",
+        )
+        StrengthSet.objects.create(
+            exercise=exercise,
+            exercise_name=f"动作 {index}",
+            sets=3,
+            reps_per_set=8,
+        )
+    client.force_login(user)
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get("/history/")
+
+    assert response.status_code == 200
+    assert response.content.decode().count("查看详情") == 4
+    strength_queries = [
+        query for query in queries.captured_queries
+        if '"tracker_strengthset"' in query["sql"]
+    ]
+    assert len(strength_queries) == 1
